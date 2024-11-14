@@ -89,12 +89,21 @@ Finally there will be many requests referencing witdget's serial number. `idx_wi
 
 
 #### Functions
+All functions are defined with admin privileges (the definer role must be administrative) so only permissions to these functions and not the affected tables and operations need to be granted to execute them. A common security practice.
 
-[Add_widget function](sql/2.widgets-function-add_widget.sql)
-This function adds a widget and creates relevant ports, and returns success or throws error if duplicate entry exists.
+[Add_widget (serial number, name, port slots)](sql/2.widgets-function-add_widget.sql)
+This function adds a widget and creates relevant ports, and returns success message or throws error if duplicate entry exists. It expects widgets serial number and name as text value, and a list of supported ports as an array.
 
+[Associate_widgets(widget serial number, another widget's serial number, port)](sql/3.widgets-function_associate_widgets.sql)
+This function checks that both referenced widgets exist, that both have an open port slot of the defined type and then associates both widgets by 
+getting setting their id's in each others association field.
+The complexity here is that because I am avoiding additional id index on slots table I had to use cursors to target and lock specific rows for update. Otherwise there is a possibility to update more than one row. Functional, but a bit less readible.
 
+[Remove_association(widget serial number, another widget's serial number, port)](sql/4.widgets-function_remove_association.sql)
+Removes association between widgets. Ensures that both widgets exist, that association exists and then removes it.
 
+[Remove_widget(widget serial number)](sql/5.widgets-function-remove_widget.sql)
+Deletes a widget of a given serial number. The resulting row updates are cascading as per table column value restriction definitions explained earlier.
 
 #### Users and Groups
 

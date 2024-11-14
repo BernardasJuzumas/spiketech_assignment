@@ -1,3 +1,5 @@
+-- Adds a widget and creates relevant ports, and returns success message or throws error if duplicate entry exists. 
+-- Expects widgets serial number and name as text value, and a list of supported ports as an array.
 CREATE OR REPLACE FUNCTION widgets.add_widget(
     widget_sn text,
     widget_name text,
@@ -15,15 +17,13 @@ BEGIN
 
 	-- Count of casted_slots and break if >3
 	IF array_length(casted_slots, 1) > 3 THEN
-        RETURN 'Cannot add widget: too many slots (maximum is 3)';
+        RAISE EXCEPTION 'Cannot add widget: too many slots (maximum is 3)';
     END IF;
 	
 	-- Insert the widget and retrieve the newly generated ID
     INSERT INTO widgets.widgets(serial_number, name)
     VALUES (widget_sn, widget_name)
     RETURNING id INTO new_widget_id;
-
-
 
     -- Iterate over the slots array and insert each slot
     FOREACH slot IN ARRAY casted_slots LOOP
