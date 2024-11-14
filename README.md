@@ -1,0 +1,136 @@
+## Assignment
+
+**Mission:**
+Design, build and deploy a high throughput **service** for handling **widgets**
+
+**Service description:**
+- Service allows creating, removing and associating **widgets** via API
+- Service must be capable of handling *thousands* of requests without noticeable latency
+- Service operations are singular. Service does not support batched transactions.
+
+**Widgets description:**
+- Every **widget** is defined a set of **serial number**, **name** and **ports** that the widget will use to associate with other widgets
+- **Serial number** is a unique text value. There cannot be two widgets with the same value.
+- **Name** is not unique. There can be widgets with the same name.
+- **Ports** can only belong to specific **port type**.
+- There are three supported **port types**: "P", "R" and "Q".
+- Not all widgets support all **port types**. 
+- A widget can have more than one port of the same type.
+- A widget can have 3 ports at most. I will refer to the as **port slots**.
+- Every widget is created with a predetermined number of ports slots of specific port type. *For example: QQ, P, PRR*.
+- Widgets can be **associated** using the same port of each widget.
+- The association is bi-directional, meaning once associated each widget utilize a port of the same type.
+- Two widgets can be associated more than once, but not on the same port type.
+
+## Solution - high level
+
+### Numbers and constraints
+
+- **Must handle up to 10k requests per second** - "*Thousands*"
+- **10 million widgets** 
+- **20 million slots** (*approx 2 slots per widget*).
+- **Widgets -> slots relationships**
+- **Concurrent operations**, avoid race conditions.
+- **Non degrading performance under heavy load**
+
+### Keep it simple
+
+Since there's not much time (as always), the major additional criteria is keeping it smart and simple. As with any problem there are many complex solutions all with their pros and cons and I am happy to discuss them in detail. But for now..
+### High level components
+
+- **Database** - I chose **PostgreSQL** as it scales up well, has options to scale laterally and there are plenty cost-effective managed hosting solutions and even platforms for simple deployment. On the functional part it will provide row-level-locking which will help avoid potential race conditions when associating widgets (more on that in Implementation part)
+- **API middleware** - to abstract direct database implementation and provide an API interface I chose **PostgREST** - a standalone web server that serves a simple RESTful API to PostgreSQL. Major benefit of this solution is having a single source of truth, keeping all application logic in database and avoiding opinionated implementations. Furthermore PostgREST is well optimized for this task, uses modern interfacing techniques (like dynamic connection pooling) and can reportedly handle up to 2000 requests/sec on low configuration machines.
+- **Load balancer** - to distribute the load the load balance will be used. The solution considers several deployment approaches with different balancers in place.
+### Interfaces
+
+The service will provide following interfaces to facilitate the required functionality:
+- **`add_widget`**: creates a new widget when `serial number`, `name` and `port slots` are supplied. 
+- **`remove_widget`**: allows removing a widget with a supplied `serial number`. It is implied that removal of the widget "disconnects" it from other widgets and frees up their port slots for further association.
+- **`associate_widgets`**: takes in serial numbers of two `widgets` and a `port` and creates and association between them, given both widgets posses a `slot` of provided port type.
+- **`remove_association`**: takes in same parameters as above, but instead of creating - removes the existing association between two widgets if one exists.
+
+I am adding additional, helper interfaces to possibly help the operations:
+- **`get_widget`**: takes in a `serial number` of a widget and, if one exists returns a list of widget slots and their associations.
+- **`get_free_slot`**: takes in a `widget serial number` and `slot type` and finds another widget that has not been associated to this widget and has the same slot type free. Useful for creating random associations.
+
+### Testing
+
+TBA :)
+
+## Implementation
+
+### Database
+
+>**Note:** I (accidentally) used postgesql@14 for development and it was still quite performant. Taking to consideration major leaps in B-Tree index (and we use two big ones) performance between version 14 and 16 I would recommend using postgresql@16 or even newly released version 17 (2x performance on wal, faster vacuum) .
+#### Schema
+
+```sql
+CREATE SCHEMA IF NOT EXISTS widgets
+```
+
+Instead of using a default `public` schema I will be using a separate schema called `widgets`. I find it more convenient in a long run to have a dedicated namespace. It is also more a more correct approach. The drawbacks are that most references have to be explicit (for example when selecting from `widgets` table instead of writing `SELECT * FROM widgets` we must explicitly say `SELECT * FROM widgets.widgets`). 
+
+
+
+
+#### Tables, types and indexes
+
+#### Functions
+
+#### Users and Groups
+
+### Configuration
+#### PostgREST
+
+#### PostgreSQL
+#### Docker and docker-compose
+
+
+
+### Deployment: 
+*Real men test in production*
+
+
+
+
+
+There are many ways to deploy this solution, but it comes to 
+
+Either host this in
+The easiest and hassle-free approach would be to host the database solution in AWS, such as Aurora DB. Since our (royal us, or me in this case) is limited - will do a limited hosting option
+
+### Considerations:
+
+#### Deployment
+
+The proposed solution uses a local deployment
+
+#### Performance
+
+**Configure `postgresql.conf` for application workloads**
+
+When manually hosting PostgreSQL the standard configuration is of a little good, some ideas to make it more performant:
+```
+# Memory settings considering server with 16GB total RAM
+shared_buffers = 4GB # 1/4 of RAM to store indexes (measured at ~2GB total)
+maintenance_work_mem = 1GB # for frequent indexing and vacuuming big tables
+effective_cache_size = 8GB
+```
+
+**Alternative to dynamic connection pooling - PgBouncer**
+
+A common practice to deal with heavy, connection-intensive workloads for PostgreSQL is to use a separate service such as PgBouncer. It would stand between database and API middleware.  Considering our current workloads it is still fine to use simple dynamic connection pooling, but additional scale may require more aggressive session management techniques.
+
+**Rate limiting**
+
+#### Security
+
+**HTTPS**
+
+The PostgREST service does not implement HTTPS by default. Production-ready deployments will require setting up a reverse proxy to enable HTTPS between clients and service API.
+
+**Authentication**
+
+The current implementation does not take Authenticaition in to account. The real, production ready service might consider some authentication
+
+
