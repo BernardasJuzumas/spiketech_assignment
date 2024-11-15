@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  postgrest:
+    image: postgrest/postgrest:latest
+    environment:
+      PGRST_DB_URI: postgres://authenticator:mysecretpassword@localhost:5432/postgres
+      PGRST_DB_SCHEMA: widget
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_DB_POOL: 100
+    deploy:
+      replicas: 5  # Start with 5 replicas
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    networks:
+      - widgets-net
+    ports:
+      - "3000"  # Only needed if using a single instance locally
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+    volumes:
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    networks:
+      - widgets-net
+    deploy:
+      resources:
+        limits:
+          memory: 4GB
+        reservations:
+          memory: 2GB
+networks:
+  widgets-net:
+    driver: bridge

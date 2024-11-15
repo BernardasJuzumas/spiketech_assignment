@@ -51,7 +51,10 @@ The service will provide following interfaces to facilitate the required functio
 
 ### Testing
 
-TBA :)
+Testing to be done in:
+- Database layer - scripts testing against business logic and database performance to be developed.
+- Integration layer - Businees logic: do all operations work as expected? Performance: how many requests and on what configuration machines can PostgREST handle.
+- Infrastructure layer - how infrastructure reacts under load. How fast are new resources provisioned when needed.
 
 ## Implementation
 
@@ -86,7 +89,7 @@ Finally there will be many requests referencing witdget's serial number. `idx_wi
 
 **Why no partitions?**
 
-Since in current solution widgets table must ensure uniqueness of serial number and id separately there is no way to effciently split the table in to partitons. Slots don't have clear unique constraints either and their indexes already serve as maximum possible partitions. 
+Since widgets table must ensure uniqueness of serial number and id separately there is no way to effciently split the table in to partitons. Slots don't have clear unique constraints either and their indexes already serve as (sort of) maximum possible partitions (with NULL associations and full tree). 
 Even though partitoning would help parallelize the work, creating a schema that would allow utilizing partitions seems less efficient at a glance. This is definitely in my mind for future, but let's get on with the rest of the solution.
 
 #### Functions
@@ -116,35 +119,92 @@ Per best practices let's create two roles
 
 Web service will authenticate to service using `authenticator` credentials.
 
-#### Testing database operations
+#### Testing database, quick benchmark
 
-To be very honest writing proper tests is simply not in the cards. I test all functionality manually [HERE](sql/widgets-tests.sql)
+To be very honest writing proper tests is simply not in the cards time-wise. I test all functionality manually [HERE](sql/widgets-tests.sql), seems to work.
+
+I wrote helper function [generate_random_widget](sql/widgets-function-generate_random_widget.sql) and a query [to generate test data](sql/widgets-generate-widgets.sql) to populate test data. Takes nearly 40 minutes to complete on my old m1 air which is a good sign, as 10mil transactions (every of which performs multiple scans on both tables/indexes) per 600 second = 4k+ transactions/s. Without optimizations or sufficient RAM to boot. On the other hand the script does not consider multiple managed connections, which may become a bottleneck if not handled with care.
+
+(Note: in [test data generation script](sql/widgets-generate-widgets.sql)) I also provide a potentially faster approach to  generate test data (commented), that is using parallelization where the query is explicitly set to supress any messages and but this approach does not simmulate immediate database commits.
+
+Lastly [a query to check our table index size](sql/widgets-generate-widgets.sql)) helps to determine the optimal memory resources to conveniently accomodate inxes in system RAM.
 
 ### Configuration
-#### PostgREST
 
 #### PostgreSQL
-#### Docker and docker-compose
+
+**Numbers**
+1. Database needs to handle index size for defined workloads an a little extra. The total amount of indexes at 10 million widgets will be close to 2GB.
+2. Database must support thousands of potential consecutive connections. Assuming we get up to 10k request per second, and every transaction takes up to 100ms (0.1s) to handle the database will need to potentially have up to 1000 open connection slots. Every connection takes up memory too (~1-2MB per connection). Supporting thousands of parallel connections will also contribute to CPU load. We will get inbuilt connection pooling support from PostgREST too, so this setting should satisfy the requirement.
 
 
+Although the service database is relatively small, transactions are few and optimized, to reach performace benchmarks I would start start with the following database server's hardware configuration:
+- 4-8 vCPUs to handle burst-parallel workloads;
+- 32 GB (at least 16GB) of system memory to fit larger indexes and maintain connextion pools.
+- SSD. The faster - the better. The below settings try to mitigate disk-write performace affecting the system operations as much as possible. (Note: with very fast SSDs it might be possible to forego the requirements, but usually using fast SSDs cost more than affordable RAM)
 
-### Deployment: 
-*Real men test in production*
+The followigh configuration values in `postgresql.conf` should compliment the above hardware configurations:
+
+```conf
+# Main settings to adjust
+max_connections = 1000 # 10x higher than default
+shared_buffers = 8GB # or 1/4th of system RAM.
+maintenance_work_mem = 1GB # will help with vacuum operations
+work_mem = 4MB # with 1000 consecutive connections this will multiply to 4GB
+effective_cache_size = 16GB # set to 50-75% of total system memory, so lower if system is with lower ram.
+
+# WRITE-AHEAD LOG
+wal_buffers = 16MB	
+
+# Autovacuum (garbage collection) settings. We can get in to details, but these setting will make it adjust to our index size and access frequency.
+autovacuum_vacuum_scale_factor = 0.05 
+autovacuum_analyze_scale_factor = 0.02
+autovacuum_vacuum_threshold = 1000
+autovacuum_analyze_threshold = 1000
+```
+
+#### PostgREST
+
+Setting up postgrest instance acan be done via environment viariables, config files or (even!) from the database. For now I will setup `settings.conf`:
+
+```conf
+db-uri = "postgres://authenticator:mysecretpassword@localhost:5432/postgres" #the DB connection string
+db-schemas = "widgets" # the schema in which our solution operates
+db-anon-role = "web_anon" #this is the role we setup in our deployment file
+#server-port = 3000 #default, in some configurations like kubernetes this is auto-managed
+db-pool = 100 # !!!! Very important - this should be set as [1000 (max connections) / max instances of PostgREST]. Current configuration assumes we will be able to 'spin-up' up to 10 instances.
+```
+
+#### Load balancer
+
+Load balancer should be setup to distribute the load evenly between available instances of PostgREST assuming deployment where there are many (will hopefully manage to cover this).
+
+## Deployment
+
+This solution is relatively simple to deploy in various configurations. I will provide a few viable options in detail and discuss several alternatives afterwards.
+
+### Local deployment
+
+The solution can be deployed locally using a [docker-compose file](deployments/docker-compose/docker-compose.yml)). This assumes anyone who runs this has sufficient system resources (16GB RAM, current-gen CPU), but the settings can definitely be scaled back to reasonable 
 
 
+**i have not managed to finalize the schama deployment script, so it needs to be executed manually within database**. 
+
+### Cloud-native (AWS)
+
+(Note: although I'm using AWS as example, the same deployment can be done in any other major cloud service provider's infrastructure with only minor difference).
+
+---- Lacking time, not able to complete,
+Quick description: the setup would to use Aurora/RDS instance, ALB for balancing and ECS with autoscaling group that spins up a new PostgREST instance. Parameters passed to postgers via environment variables (which are also supported).
 
 
+### Kubernetes (managed or unmanaged)
 
-There are many ways to deploy this solution, but it comes to 
+It is also possible to manage this whole set-up in kubernetes abstractions. Possibility to be cloud-agnostic might be necesseray in certain scenarios.
 
-Either host this in
-The easiest and hassle-free approach would be to host the database solution in AWS, such as Aurora DB. Since our (royal us, or me in this case) is limited - will do a limited hosting option
 
 ### Considerations:
 
-#### Deployment
-
-The proposed solution uses a local deployment
 
 #### Performance
 
@@ -153,14 +213,14 @@ The proposed solution uses a local deployment
 When manually hosting PostgreSQL the standard configuration is of a little good, some ideas to make it more performant:
 ```
 # Memory settings considering server with 16GB total RAM
-shared_buffers = 4GB # 1/4 of RAM to store indexes (measured at ~2GB total)
+shared_buffers = 4GB # 1/4 of memory to store indexes (measured at ~2GB total)
 maintenance_work_mem = 1GB # for frequent indexing and vacuuming big tables
-effective_cache_size = 8GB
+effective_cache_size = 12GB # 50-75% of total system memory.
 ```
 
 **Alternative to dynamic connection pooling - PgBouncer**
 
-A common practice to deal with heavy, connection-intensive workloads for PostgreSQL is to use a separate service such as PgBouncer. It would stand between database and API middleware.  Considering our current workloads it is still fine to use simple dynamic connection pooling, but additional scale may require more aggressive session management techniques.
+A common practice to deal with heavy, connection-intensive workloads for PostgreSQL is to use a separate service such as PgBouncer. It would stand between database and API middleware.  Considering current workloads it is still fine to use simple dynamic connection pooling, but additional scale may require more aggressive session management techniques.
 
 **Rate limiting**
 
@@ -172,6 +232,6 @@ The PostgREST service does not implement HTTPS by default. Production-ready depl
 
 **Authentication**
 
-The current implementation does not take Authenticaition in to account. The real, production ready service might consider some authentication
+The current implementation does not take Authenticaition in to account. The real, production ready service might consider some authentication implementation.
 
 

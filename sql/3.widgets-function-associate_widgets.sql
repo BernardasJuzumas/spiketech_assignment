@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION widgets.associate_widgets(
     widget1_sn text,
     widget2_sn text,
     port widgets.port_type
-) RETURNS TEXT 
+) RETURNS void 
 SECURITY DEFINER -- this function will always be ran with admin (user that defined it).
 AS $$
 DECLARE
@@ -34,7 +34,7 @@ DECLARE
     widget2_slot widgets.slots%ROWTYPE; -- Same for widget2
 BEGIN
 
-	IF widget1_sn = widget1_sn
+	IF widget1_sn = widget1_sn THEN
 		RAISE EXCEPTION 'Widgets cannot self-associate';
 	END IF;
     -- Retrieve widget IDs based on the provided serial numbers
@@ -77,5 +77,7 @@ BEGIN
 	-- Close cursors
 	CLOSE widget1_cursor;
 	CLOSE widget2_cursor;
+
+	RAISE NOTICE 'Widgets % and % have been associated on port %', widget1_sn, widget2_sn, port;
 END;
 $$ LANGUAGE plpgsql;

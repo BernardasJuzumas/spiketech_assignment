@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION widgets.add_widget(
     widget_sn text,
     widget_name text,
     slots text[]
-) RETURNS TEXT 
+) RETURNS void 
 SECURITY DEFINER -- this function will always be ran with admin (user that defined it).
 AS $$
 DECLARE
@@ -31,6 +31,7 @@ BEGIN
             VALUES (new_widget_id, slot);
     END LOOP;
 
-    RETURN 'Success';
+    RAISE NOTICE 'Widget with serial number % and name % added successfully', widget_sn, widget_name;
 END;
 $$ LANGUAGE plpgsql;
+

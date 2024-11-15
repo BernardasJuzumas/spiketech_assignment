@@ -3,7 +3,7 @@ CREATE OR REPLACE FUNCTION widgets.remove_association(
     widget1_sn text,
     widget2_sn text,
     port widgets.port_type
-) RETURNS TEXT 
+) RETURNS void 
 SECURITY DEFINER -- this function will always be ran with admin (user that defined it).
 AS $$
 DECLARE
@@ -52,6 +52,6 @@ BEGIN
 		AND association = widget1_id 
 		AND slot = port;
 
-    RETURN 'Association removed successfully';
+    RAISE NOTICE 'Widgets with serial numbers % and % have been disassociated on port %', widget1_sn, widget2_sn, port;
 END;
 $$ LANGUAGE plpgsql;
