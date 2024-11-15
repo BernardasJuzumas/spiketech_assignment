@@ -14,7 +14,7 @@ services:
     image: postgrest/postgrest:latest
     environment:
       PGRST_DB_URI: postgres://authenticator:mysecretpassword@db:5432/postgres
-      PGRST_DB_SCHEMA: widget
+      PGRST_DB_SCHEMA: widgets
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_DB_POOL: 100
     deploy:
@@ -29,7 +29,7 @@ services:
     networks:
       - widgets-net
     ports:
-      - "3000"  # Only needed if using a single instance locally
+      - "3000"
 
   db:
     image: postgres:17
