@@ -108,6 +108,18 @@ Deletes a widget of a given serial number. The resulting row updates are cascadi
 
 #### Users and Groups
 
+Per best practices let's create two roles
+ - `web-anon` to manage schema and method access
+ - `authenticator` to manage authentication
+
+ The `web-anon` will only have acces to execute the previously defined functions and will not be granted access to other methods and tables, allowing for fine-grained access control.
+
+Web service will authenticate to service using `authenticator` credentials.
+
+#### Testing database operations
+
+To be very honest writing proper tests is simply not in the cards. I test all functionality manually [HERE](sql/widgets-tests.sql)
+
 ### Configuration
 #### PostgREST
 
