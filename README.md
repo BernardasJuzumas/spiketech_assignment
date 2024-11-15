@@ -138,6 +138,8 @@ Lastly [a query to check our table index size](sql/widgets-generate-widgets.sql)
 2. Database must support thousands of potential consecutive connections. Assuming we get up to 10k request per second, and every transaction takes up to 100ms (0.1s) to handle the database will need to potentially have up to 1000 open connection slots. Every connection takes up memory too (~1-2MB per connection). Supporting thousands of parallel connections will also contribute to CPU load. We will get inbuilt connection pooling support from PostgREST too, so this setting should satisfy the requirement.
 
 
+> All the estimations provided below are just assumptions for "worst-case". With sufficient time and tuning these resources can be drastically scaled back
+
 Although the service database is relatively small, transactions are few and optimized, to reach performace benchmarks I would start start with the following database server's hardware configuration:
 - 4-8 vCPUs to handle burst-parallel workloads;
 - 32 GB (at least 16GB) of system memory to fit larger indexes and maintain connextion pools.
@@ -185,26 +187,24 @@ This solution is relatively simple to deploy in various configurations. I will p
 
 ### Local deployment
 
-The solution can be deployed locally using a [docker-compose file](deployments/docker-compose/docker-compose.yml)). This assumes anyone who runs this has sufficient system resources (16GB RAM, current-gen CPU), but the settings can definitely be scaled back to reasonable 
-
-
-**i have not managed to finalize the schama deployment script, so it needs to be executed manually within database**. 
+The solution can be deployed and tested locally using a [docker-compose file](deployments/docker-compose/docker-compose.yml)).
 
 ### Cloud-native (AWS)
 
 (Note: although I'm using AWS as example, the same deployment can be done in any other major cloud service provider's infrastructure with only minor difference).
 
----- Lacking time, not able to complete,
-Quick description: the setup would to use Aurora/RDS instance, ALB for balancing and ECS with autoscaling group that spins up a new PostgREST instance. Parameters passed to postgers via environment variables (which are also supported).
-
+Since meeting time constraints, the verbal explanation must suffice:
+- The setup would to use Aurora/RDS instance. Must measure to find best price/performance ratio. Or if price is not the issue - go limitless.
+- PostgREST on ECS + autoscaling group.
+- Amazon Load balance
+- VPS
+- Credentials/settings shared via environment variables
 
 ### Kubernetes (managed or unmanaged)
 
-It is also possible to manage this whole set-up in kubernetes abstractions. Possibility to be cloud-agnostic might be necesseray in certain scenarios.
+It is also possible to manage this whole set-up in kubernetes abstractions. Possibility to be cloud-agnostic might be necesseray in certain scenarios. For now just recognizing another option in store, time-constraints are not in favor to build and test this.
 
-
-### Considerations:
-
+## Considerations:
 
 #### Performance
 
