@@ -13,7 +13,7 @@ services:
   postgrest:
     image: postgrest/postgrest:latest
     environment:
-      PGRST_DB_URI: postgres://authenticator:mysecretpassword@localhost:5432/postgres
+      PGRST_DB_URI: postgres://authenticator:mysecretpassword@db:5432/postgres
       PGRST_DB_SCHEMA: widget
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_DB_POOL: 100
