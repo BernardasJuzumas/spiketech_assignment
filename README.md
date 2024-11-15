@@ -38,7 +38,7 @@ Design, build and deploy a high throughput **service** for handling **widgets**
 Since there's not much time (as always), the major additional criteria is keeping it smart and simple. As with any problem there are many complex solutions all with their pros and cons and I am happy to discuss them in detail. But for now..
 ### High level components
 
-- **Database** - I chose **PostgreSQL**. It scales up well, has options to scale laterally and there are plenty cost-effective managed hosting solutions and even platforms for simple deployment. On the functional part it will provide row-level-locking which will help avoid potential race conditions when associating widgets (more on that in Implementation part)
+- **Database** - I chose **PostgreSQL**. It scales up well, handles a lot of data and there are plenty cost-effective managed hosting solutions, even platforms for simple deployment. On the functional part it will provide row-level-locking which will help avoid potential race conditions when associating widgets (more on that in Implementation part)
 - **API middleware** - to abstract direct database implementation and provide an API interface I chose **PostgREST** - a standalone web server that serves a simple RESTful API to PostgreSQL. Major benefit of this solution is having a single source of truth, keeping all application logic in database and avoiding opinionated implementations. Furthermore PostgREST is well optimized for this task, uses modern interfacing techniques (like dynamic connection pooling) and can reportedly handle up to 2000 requests/sec on low configuration machines.
 - **Load balancer** - to distribute the load the load balance will be used. The solution considers several deployment approaches with different balancers in place.
 ### Interfaces
@@ -48,10 +48,6 @@ The service will provide following interfaces to facilitate the required functio
 - **`remove_widget`**: allows removing a widget with a supplied `serial number`. It is implied that removal of the widget "disconnects" it from other widgets and frees up their port slots for further association.
 - **`associate_widgets`**: takes in serial numbers of two `widgets` and a `port` and creates and association between them, given both widgets posses a `slot` of provided port type.
 - **`remove_association`**: takes in same parameters as above, but instead of creating - removes the existing association between two widgets if one exists.
-
-I am adding additional, helper interfaces to possibly help the operations:
-- **`get_widget`**: takes in a `serial number` of a widget and, if one exists returns a list of widget slots and their associations.
-- **`get_free_slot`**: takes in a `widget serial number` and `slot type` and finds another widget that has not been associated to this widget and has the same slot type free. Useful for creating random associations.
 
 ### Testing
 
@@ -75,6 +71,7 @@ The enum `port_type` will allow to conveniently enforce only the allowed ports.
 **Tables:**
 
 Widgets will be held separately from their slots. `Widgets` table will create the relation between their serial number and their key, while `slots` will hold every slot of a widget and it's possbile association. 
+
 This way the operations for associating slots will be much faster and this allows of utilizing SQL basic features like enforcing constrants (widget can't associate to itself) cascading updates (when widget is deleted it's slots get deleted too, and the associations become NULL).
 
 A side effect of this decision is that when creating an association there will have to be 2 inserts: 1 in the associating table and one in the receiving one. This is solved with SQL transactional logic, defined in 'Functions' paragraph ahead.
@@ -83,13 +80,17 @@ A side effect of this decision is that when creating an association there will h
 
 Partial index `idx_unique_widget_slot_assoc_except_null_assoc` enforces the rule that only one association on the same port can be established while allowing there to be multiple NULL associations (widget can have multiple free slots of the same port type)
 
-`idx_slots_widget_slot_assoc` indexes of the whole set of slots values for fast selects. Since this will be a B-Tree this index will be relatively small.
+Global index `idx_slots_widget_slot_assoc` indexes of the whole set of slots values for fast selects. Since this will be a B-Tree this index will be relatively small.
 
 Finally there will be many requests referencing witdget's serial number. `idx_widgets_serial_number` is the largest index, because it will contain values of type TEXT.
 
+**Why no partitions?**
+
+Since in current solution widgets table must ensure uniqueness of serial number and id separately there is no way to effciently split the table in to partitons. Slots don't have clear unique constraints either and their indexes already serve as maximum possible partitions. 
+Even though partitoning would help parallelize the work, creating a schema that would allow utilizing partitions seems less efficient at a glance. This is definitely in my mind for future, but let's get on with the rest of the solution.
 
 #### Functions
-All functions are defined with admin privileges (the definer role must be administrative) so only permissions to these functions and not the affected tables and operations need to be granted to execute them. A common security practice.
+All functions are defined with admin privileges (the definer role must be administrative) so only permissions to these functions and not the affected tables and operations need to be granted to execute them. This is common security practice that will come in handy when connecting to API middleware.
 
 [Add_widget (serial number, name, port slots)](sql/2.widgets-function-add_widget.sql)
 This function adds a widget and creates relevant ports, and returns success message or throws error if duplicate entry exists. It expects widgets serial number and name as text value, and a list of supported ports as an array.
