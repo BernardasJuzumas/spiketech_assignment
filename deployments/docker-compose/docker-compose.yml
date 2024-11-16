@@ -20,7 +20,7 @@ services:
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_DB_POOL: 100
     deploy:
-      replicas: 2
+      replicas: 10
       resources:
         limits:
           cpus: '0.5'
@@ -38,11 +38,18 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
     volumes:
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    #  - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     networks:
       - widgets-net
+    shm_size: "512mb"
+    #command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    command: #testing passing cli arguments directly
+      - "postgres"
+      - "-c"
+      - "shared_buffers=1GB"
+      - "-c"
+      - "max_connections=1000"
     deploy:
       resources:
         limits:
@@ -67,7 +74,7 @@ services:
     networks:
       - widgets-net
     deploy:
-      replicas: 2
+      replicas: 10
       resources:
         limits:
           cpus: '0.1'
@@ -92,18 +99,18 @@ services:
     networks:
       - widgets-net
 
-  # grafana:
-  #   image: grafana/grafana:latest
-  #   ports:
-  #     - "3001:3000"
-  #   environment:
-  #     GF_SECURITY_ADMIN_PASSWORD: admin
-  #   volumes:
-  #     - grafana-data:/var/lib/grafana
-  #   depends_on:
-  #     - influxdb
-  #   networks:
-  #     - widgets-net
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - influxdb
+    networks:
+      - widgets-net
 
 volumes:
   influxdb-data:
