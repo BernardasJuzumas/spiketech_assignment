@@ -10,10 +10,11 @@
 > docker-compose up
 ```
 
-
 2. Localhost leads to OpenAPI specification of the api. All the api function calls are available through /rpc/{function name} path. You should see the paths visible in the spec.
 
-3. All endpoints produce OK(HTTP 200) response if successful or a payload with an error if they are not.
+3. All endpoints produce OK(HTTP 200) response if successful or a payload with an exception if they are not.
+
+
 
 
 ## Assignment
