@@ -157,12 +157,11 @@ Lastly [a query to check our table index size](sql/widgets-generate-widgets.sql)
 1. Database needs to handle index size for defined workloads an a little extra. The total amount of indexes at 10 million widgets will be close to 2GB.
 2. Database must support thousands of potential consecutive connections. Assuming we get up to 10k request per second, and every transaction takes up to 100ms (0.1s) to handle the database will need to potentially have up to 1000 open connection slots. Every connection takes up memory too (~1-2MB per connection). Supporting thousands of parallel connections will also contribute to CPU load. We will get inbuilt connection pooling support from PostgREST too, so this setting should satisfy the requirement.
 
-
 > All the estimations provided below are just assumptions for "worst-case". With sufficient time and tuning these resources can be drastically scaled back
 
 Although the service database is relatively small, transactions are few and optimized, to reach performace benchmarks I would start start with the following database server's hardware configuration:
 - 4-8 vCPUs to handle burst-parallel workloads;
-- 32 GB (at least 16GB) of system memory to fit larger indexes and maintain connextion pools.
+- At least 16GB of system memory to fit larger indexes and maintain connextion pools.
 - SSD. The faster - the better. The below settings try to mitigate disk-write performace affecting the system operations as much as possible. (Note: with very fast SSDs it might be possible to forego the requirements, but usually using fast SSDs cost more than affordable RAM)
 
 The followigh configuration values in `postgresql.conf` should compliment the above hardware configurations:
@@ -170,10 +169,10 @@ The followigh configuration values in `postgresql.conf` should compliment the ab
 ```conf
 # Main settings to adjust
 max_connections = 1000 # 10x higher than default
-shared_buffers = 8GB # or 1/4th of system RAM.
-maintenance_work_mem = 1GB # will help with vacuum operations
-work_mem = 4MB # with 1000 consecutive connections this will multiply to 4GB
-effective_cache_size = 16GB # set to 50-75% of total system memory, so lower if system is with lower ram.
+shared_buffers = 4GB # or 1/4th of system RAM.
+maintenance_work_mem = 512MB # will help with vacuum operations
+work_mem = 4MB # with 1000 consecutive connections this can multiply to 4GB
+effective_cache_size = 10GB # set to 50-75% of total system memory, so lower if system is with lower ram.
 
 # WRITE-AHEAD LOG
 wal_buffers = 16MB	
@@ -199,7 +198,7 @@ db-pool = 100 # !!!! Very important - this should be set as [1000 (max connectio
 
 #### Load balancer
 
-Load balancer should be setup to distribute the load evenly between available instances of PostgREST assuming deployment where there are many (will hopefully manage to cover this).
+Load balancer should be setup to distribute the load evenly between available instances of PostgREST assuming deployment where there are many.
 
 ## Deployment
 
@@ -213,12 +212,13 @@ The solution can be deployed and tested locally using a [docker-compose file](de
 
 (Note: although I'm using AWS as example, the same deployment can be done in any other major cloud service provider's infrastructure with only minor difference).
 
-Since meeting time constraints, the verbal explanation must suffice:
-- The setup would to use Aurora/RDS instance. Must measure to find best price/performance ratio. Or if price is not the issue - go limitless.
+- The setup would to use managed DB - Aurora/RDS instance. Exact measurements should be done to find best price/performance ratio.
 - PostgREST on ECS + autoscaling group.
-- Amazon Load balance
-- VPS
+- Amazon Load balancer.
+- All components on VPS
 - Credentials/settings shared via environment variables
+
+This setup is mirroring the docker-compose configuration just in AWS.
 
 ### Kubernetes (managed or unmanaged)
 
@@ -235,14 +235,12 @@ When manually hosting PostgreSQL the standard configuration is of a little good,
 # Memory settings considering server with 16GB total RAM
 shared_buffers = 4GB # 1/4 of memory to store indexes (measured at ~2GB total)
 maintenance_work_mem = 1GB # for frequent indexing and vacuuming big tables
-effective_cache_size = 12GB # 50-75% of total system memory.
+effective_cache_size = 10GB # 50-75% of total system memory.
 ```
 
 **Alternative to dynamic connection pooling - PgBouncer**
 
 A common practice to deal with heavy, connection-intensive workloads for PostgreSQL is to use a separate service such as PgBouncer. It would stand between database and API middleware.  Considering current workloads it is still fine to use simple dynamic connection pooling, but additional scale may require more aggressive session management techniques.
-
-**Rate limiting**
 
 #### Security
 
