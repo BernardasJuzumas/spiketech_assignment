@@ -14,7 +14,8 @@
 
 3. All endpoints produce OK(HTTP 200) response if successful or a payload with an exception if they are not.
 
-4. In 
+4. In `docker-compose.yml` I left a testing infrastructure commented. If uncommented this infrastructure will deploy 10 instances of python that will start posting to /rpc/add_widget endpoint with random with random unique values and submit request duration measurements to influxdb database. The Grafana container is for data visualization, have not extracted/published the dashboard config yet.
+> *Note: I am still testing the settings. Currently capping at max 10 requests per second, no matter the setup. I'm either not calcu*
 
 
 ## Assignment
