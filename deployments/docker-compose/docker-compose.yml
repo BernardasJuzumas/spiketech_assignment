@@ -57,64 +57,64 @@ services:
         reservations:
           memory: 2GB
 
-  python-loader:
-    build: ./python-loader
-    command: python /app/loader.py
-    volumes:
-      - ./python-loader:/app
-    environment:
-      INFLUXDB_URL: http://influxdb:8086
-      INFLUXDB_TOKEN: -0SqLweaqjZhf8bKwlr3rgOfFosmOEygbc7uEotD3uey7RPRYLA2DZA75eJyRV2SX1f3VbYVQJHK_ma08QHr3g==
-      INFLUXDB_ORG: widgets
-      INFLUXDB_BUCKET: my-bucket
-      PING__INTERVAL: 0.1
-    depends_on:
-      - postgrest
-      - influxdb
-    networks:
-      - widgets-net
-    deploy:
-      replicas: 10
-      resources:
-        limits:
-          cpus: '0.1'
-          memory: 128M
-        reservations:
-          cpus: '0.05'
-          memory: 64M
+#   python-loader:
+#     build: ./python-loader
+#     command: python /app/loader.py
+#     volumes:
+#       - ./python-loader:/app
+#     environment:
+#       INFLUXDB_URL: http://influxdb:8086
+#       INFLUXDB_TOKEN: -0SqLweaqjZhf8bKwlr3rgOfFosmOEygbc7uEotD3uey7RPRYLA2DZA75eJyRV2SX1f3VbYVQJHK_ma08QHr3g==
+#       INFLUXDB_ORG: widgets
+#       INFLUXDB_BUCKET: my-bucket
+#       PING__INTERVAL: 0.1
+#     depends_on:
+#       - postgrest
+#       - influxdb
+#     networks:
+#       - widgets-net
+#     deploy:
+#       replicas: 10
+#       resources:
+#         limits:
+#           cpus: '0.1'
+#           memory: 128M
+#         reservations:
+#           cpus: '0.05'
+#           memory: 64M
 
-  influxdb:
-    image: influxdb:latest
-    environment:
-      DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: influxdbadmin
-      DOCKER_INFLUXDB_INIT_PASSWORD: mysecretpassword
-      DOCKER_INFLUXDB_INIT_ORG: widgets
-      DOCKER_INFLUXDB_INIT_BUCKET: my-bucket
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: -0SqLweaqjZhf8bKwlr3rgOfFosmOEygbc7uEotD3uey7RPRYLA2DZA75eJyRV2SX1f3VbYVQJHK_ma08QHr3g==
-    ports:
-      - "8086:8086"
-    volumes:
-      - influxdb-data:/var/lib/influxdb
-    networks:
-      - widgets-net
+#   influxdb:
+#     image: influxdb:latest
+#     environment:
+#       DOCKER_INFLUXDB_INIT_MODE: setup
+#       DOCKER_INFLUXDB_INIT_USERNAME: influxdbadmin
+#       DOCKER_INFLUXDB_INIT_PASSWORD: mysecretpassword
+#       DOCKER_INFLUXDB_INIT_ORG: widgets
+#       DOCKER_INFLUXDB_INIT_BUCKET: my-bucket
+#       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: -0SqLweaqjZhf8bKwlr3rgOfFosmOEygbc7uEotD3uey7RPRYLA2DZA75eJyRV2SX1f3VbYVQJHK_ma08QHr3g==
+#     ports:
+#       - "8086:8086"
+#     volumes:
+#       - influxdb-data:/var/lib/influxdb
+#     networks:
+#       - widgets-net
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3001:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    volumes:
-      - grafana-data:/var/lib/grafana
-    depends_on:
-      - influxdb
-    networks:
-      - widgets-net
+#   grafana:
+#     image: grafana/grafana:latest
+#     ports:
+#       - "3001:3000"
+#     environment:
+#       GF_SECURITY_ADMIN_PASSWORD: admin
+#     volumes:
+#       - grafana-data:/var/lib/grafana
+#     depends_on:
+#       - influxdb
+#     networks:
+#       - widgets-net
 
-volumes:
-  influxdb-data:
-  grafana-data:
+# volumes:
+#   influxdb-data:
+#   grafana-data:
 
 networks:
   widgets-net:
