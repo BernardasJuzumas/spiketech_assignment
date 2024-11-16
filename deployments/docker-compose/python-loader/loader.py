@@ -3,21 +3,13 @@ import time
 import random
 import string
 import os
-from influxdb_client import InfluxDBClient, Point
+from questdb.ingress import Sender, TimestampNanos
 
 # Settings
 ping_interval = float(os.getenv('PING__INTERVAL', '0.1'))
 
-
-# InfluxDB client
-influx_url = os.getenv('INFLUXDB_URL', 'http://localhost:8086')
-influx_token = os.getenv('INFLUXDB_TOKEN', 'my-influxdb-token')
-influx_org = os.getenv('INFLUXDB_ORG', 'my-org')
-influx_bucket = os.getenv('INFLUXDB_BUCKET', 'my-bucket')
-
-client = InfluxDBClient(url=influx_url, token=influx_token, org=influx_org)
-write_api = client.write_api()
-
+# QuestDB ingestion endpoint
+#ingest_url = f"{questdb_url}/imp"
 
 def generate_random_string(length=10):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -28,11 +20,10 @@ def generate_slots():
 def send_request():
     base_url = "http://nginx/rpc/add_widget"
     widget_sn = generate_random_string()
-    widget_name = widget_sn
     slots = generate_slots()
     payload = {
         "widget_sn": widget_sn,
-        "widget_name": widget_name,
+        "widget_name": widget_sn,
         "slots": slots
     }
 
@@ -41,10 +32,19 @@ def send_request():
     end_time = time.time()
 
     response_time = end_time - start_time
-    print(f"Request took {response_time} seconds")
+    print(f"Request took {response_time:.3f} seconds")
 
-    point = Point("request_times").field("duration", response_time)
-    write_api.write(bucket=influx_bucket, org=influx_org, record=point)
+    # Format data in InfluxDB line protocol
+    line = f"request_times::duration={response_time:.6f}"
+
+    # Write to QuestDB
+    conf = f'http::addr=questdb:9000;'
+    with Sender.from_conf(conf) as sender:
+        sender.row(
+            'request_times',
+            columns={'duration': response_time},
+            at=TimestampNanos.now()
+            )
 
 if __name__ == "__main__":
     while True:

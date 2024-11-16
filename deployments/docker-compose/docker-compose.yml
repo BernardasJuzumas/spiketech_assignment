@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:latest
@@ -18,9 +16,10 @@ services:
       PGRST_DB_URI: postgres://authenticator:mysecretpassword@db:5432/postgres
       PGRST_DB_SCHEMA: widgets
       PGRST_DB_ANON_ROLE: web_anon
-      PGRST_DB_POOL: 100
+      PGRST_DB_POOL: 200
+      #PGRST_SERVER_TIMING_ENABLED: true #provides timing info for each request in the response header, it would be great to collect this data when testing
     deploy:
-      replicas: 10
+      replicas: 5
       resources:
         limits:
           cpus: '0.5'
@@ -38,12 +37,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin
     volumes:
-    #  - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - widgets-net
     shm_size: "512mb"
-    #command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     command: #testing passing cli arguments directly
       - "postgres"
       - "-c"
@@ -57,64 +54,59 @@ services:
         reservations:
           memory: 2GB
 
-#   python-loader:
-#     build: ./python-loader
-#     command: python /app/loader.py
-#     volumes:
-#       - ./python-loader:/app
-#     environment:
-#       INFLUXDB_URL: http://influxdb:8086
-#       INFLUXDB_TOKEN: -0SqLweaqjZhf8bKwlr3rgOfFosmOEygbc7uEotD3uey7RPRYLA2DZA75eJyRV2SX1f3VbYVQJHK_ma08QHr3g==
-#       INFLUXDB_ORG: widgets
-#       INFLUXDB_BUCKET: my-bucket
-#       PING__INTERVAL: 0.1
-#     depends_on:
-#       - postgrest
-#       - influxdb
-#     networks:
-#       - widgets-net
-#     deploy:
-#       replicas: 10
-#       resources:
-#         limits:
-#           cpus: '0.1'
-#           memory: 128M
-#         reservations:
-#           cpus: '0.05'
-#           memory: 64M
+  # python-loader:
+  #   build: ./python-loader
+  #   command: python /app/loader.py
+  #   volumes:
+  #     - ./python-loader:/app
+  #   environment:
+  #     QUEST_DB_URL: http://questdb:9009
+  #     PING__INTERVAL: 0.01
+  #   depends_on:
+  #     - postgrest
+  #     - questdb
+  #   networks:
+  #     - widgets-net
+  #   deploy:
+  #     replicas: 10
+  #     resources:
+  #       limits:
+  #         cpus: '0.1'
+  #         memory: 128M
+  #       reservations:
+  #         cpus: '0.05'
+  #         memory: 64M
 
-#   influxdb:
-#     image: influxdb:latest
-#     environment:
-#       DOCKER_INFLUXDB_INIT_MODE: setup
-#       DOCKER_INFLUXDB_INIT_USERNAME: influxdbadmin
-#       DOCKER_INFLUXDB_INIT_PASSWORD: mysecretpassword
-#       DOCKER_INFLUXDB_INIT_ORG: widgets
-#       DOCKER_INFLUXDB_INIT_BUCKET: my-bucket
-#       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: -0SqLweaqjZhf8bKwlr3rgOfFosmOEygbc7uEotD3uey7RPRYLA2DZA75eJyRV2SX1f3VbYVQJHK_ma08QHr3g==
-#     ports:
-#       - "8086:8086"
-#     volumes:
-#       - influxdb-data:/var/lib/influxdb
-#     networks:
-#       - widgets-net
+  # questdb:
+  #   image: questdb/questdb:latest
+  #   ports:
+  #     - "9009:9009"
+  #     - "9000:9000"
+  #     - "8812"
+  #   volumes:
+  #     - questdb-data:/questdb/data
+  #   networks:
+  #     - widgets-net
 
-#   grafana:
-#     image: grafana/grafana:latest
-#     ports:
-#       - "3001:3000"
-#     environment:
-#       GF_SECURITY_ADMIN_PASSWORD: admin
-#     volumes:
-#       - grafana-data:/var/lib/grafana
-#     depends_on:
-#       - influxdb
-#     networks:
-#       - widgets-net
+#   # grafana:
+#   #   image: grafana/grafana:latest
+#   #   ports:
+#   #     - "3001:3000"
+#   #   environment:
+#   #     GF_SECURITY_ADMIN_PASSWORD: admin
+#   #     GF_INSTALL_PLUGINS: questdb-questdb-datasource
+#   #   volumes:
+#   #     - grafana-data:/var/lib/grafana
+#   #     #- ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
+#   #     #- ./grafana/dashboards:/var/lib/grafana/dashboards
+#   #   depends_on:
+#   #     - questdb
+#   #   networks:
+#   #     - widgets-net
 
-# volumes:
-#   influxdb-data:
-#   grafana-data:
+volumes:
+  grafana-data:
+  questdb-data:
 
 networks:
   widgets-net:

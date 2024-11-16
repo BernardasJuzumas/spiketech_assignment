@@ -12,11 +12,51 @@
 
 2. Localhost leads to OpenAPI specification of the api. All the api function calls are available through /rpc/{function name} path. You should see the paths visible in the spec.
 
-3. All endpoints produce OK(HTTP 200) response if successful or a payload with an exception if they are not.
+3. All endpoints produce OK (HTTP/1.1 204 No Content) response if successful or a payload with an exception if they are not.
 
-4. In `docker-compose.yml` I left a testing infrastructure commented. If uncommented this infrastructure will deploy 10 instances of python that will start posting to /rpc/add_widget endpoint with random with random unique values and submit request duration measurements to influxdb database. The Grafana container is for data visualization, have not extracted/published the dashboard config yet.
-> *Note: I am still testing the settings. Currently capping at max 10 requests per second, no matter the setup.*
+OK:
+```
+$ curl "http://localhost/rpc/add_widget" -i\
+  -X POST -H "Content-Type: application/json" \
+  -d '{ "widget_sn": "F", "widget_name": "A", "slots":["P","R","R"]}'
+HTTP/1.1 204 No Content
+Server: nginx/1.27.2
+Date: Sat, 16 Nov 2024 19:06:33 GMT
+Connection: keep-alive
+Content-Range: 0-0/*
+```
 
+Conflict:
+```
+$ curl "http://localhost/rpc/add_widget" -i\
+  -X POST -H "Content-Type: application/json" \
+  -d '{ "widget_sn": "E", "widget_name": "A", "slots":["P","R","R"]}'
+HTTP/1.1 409 Conflict
+Server: nginx/1.27.2
+Date: Sat, 16 Nov 2024 19:06:09 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+
+{"code":"23505","details":"Key (serial_number)=(E) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"widgets_serial_number_key\""}%
+```
+
+4. In `docker-compose.yml` I left a testing infrastructure commented (python-loader, questdb). If uncommented this infrastructure will deploy several instances of python script that will start posting to /rpc/add_widget endpoint with random unique values and submit request duration measurements to QuestDB database.
+
+I found the easiest way to get the measurements was to connect to QuestDB WebUI at `http://localhost:9000/` and run the following query:
+```sql
+SELECT COUNT(*) AS requests, 
+       AVG(duration) AS avg_duration,
+       MAX(duration) AS maximum_duration,
+       timestamp
+FROM request_times
+SAMPLE BY 1s
+ORDER by timestamp DESC;
+```
+
+> *Note: I am still testing the settings. On my M1 Air capping at approx 400-500 successful requests per second with mostly sub 100ms average response times and sub 200ms MAX response times*
+
+> Note: The Grafana container is for data visualization from QuestDB data, I'm still working on publishing dashboard config in docker-compose.
 
 ## Assignment
 
