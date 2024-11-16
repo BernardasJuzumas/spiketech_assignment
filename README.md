@@ -10,7 +10,11 @@
 > docker-compose up
 ```
 
-2. Localhost leads to OpenAPI specification of the api. All the api function calls are available through /rpc/{function name} path. You should see the paths visible in the spec.
+2. Localhost leads to OpenAPI specification of the api. All the api function calls are available through /rpc/{function name} path. The paths available will be listed in the spec:
+ - `rpc/add_widget` endpoint accepts `{"widget_sn": "widget's serial number","name":"widget's name", "slots":[]}` payloads.
+ - `rpc/remove_widget` endpoint accepts `{"widget_sn": "widget's serial number"}`
+ - `rpc/associate_widgets` endpoint accepts `{"widget1_sn": "sn", "widget2_sn": "sn2", "port":"port type"}`
+ - `rpc/remove_association` endpoint accepts `{"widget1_sn": "sn", "widget2_sn": "sn2", "port":"port type"}`
 
 3. All endpoints produce OK (HTTP/1.1 204 No Content) response if successful or a payload with an exception if they are not.
 
