@@ -5,7 +5,7 @@
 
 **Using docker-compose**
 1. Navigate to `deployments/docker-compose`:
-```
+```shell
 > cd deployments/docker-compose
 > docker-compose up
 ```
@@ -19,7 +19,7 @@
 3. All endpoints produce OK (HTTP/1.1 204 No Content) response if successful or a payload with an exception if they are not.
 
 OK:
-```
+```shell
 $ curl "http://localhost/rpc/add_widget" -i\
   -X POST -H "Content-Type: application/json" \
   -d '{ "widget_sn": "F", "widget_name": "A", "slots":["P","R","R"]}'
@@ -31,7 +31,7 @@ Content-Range: 0-0/*
 ```
 
 Conflict:
-```
+```shell
 $ curl "http://localhost/rpc/add_widget" -i\
   -X POST -H "Content-Type: application/json" \
   -d '{ "widget_sn": "E", "widget_name": "A", "slots":["P","R","R"]}'
@@ -104,7 +104,8 @@ Since there's not much time (as always), the major additional criteria is keepin
 
 - **Database** - I chose **PostgreSQL**. It scales up well, handles a lot of data and there are plenty cost-effective managed hosting solutions, even platforms for simple deployment. On the functional part it will provide row-level-locking which will help avoid potential race conditions when associating widgets (more on that in Implementation part)
 - **API middleware** - to abstract direct database implementation and provide an API interface I chose **PostgREST** - a standalone web server that serves a simple RESTful API to PostgreSQL. Major benefit of this solution is having a single source of truth, keeping all application logic in database and avoiding opinionated implementations. Furthermore PostgREST is well optimized for this task, uses modern interfacing techniques (like dynamic connection pooling) and can reportedly handle up to 2000 requests/sec on low configuration machines.
-- **Load balancer** - to distribute the load the load balance will be used. The solution considers several deployment approaches with different balancers in place.
+- **Load balancer** - to distribute the load the load balance will be used. The app will also "hide" behind it, not exposing its internal resources, making **load balancer the primary interface to application**.
+
 ### Interfaces
 
 The service will provide following interfaces to facilitate the required functionality:
@@ -297,5 +298,3 @@ The PostgREST service does not implement HTTPS by default. Production-ready depl
 **Authentication**
 
 The current implementation does not take Authenticaition in to account. The real, production ready service might consider some authentication implementation.
-
-
