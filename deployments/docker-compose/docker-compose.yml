@@ -16,10 +16,10 @@ services:
       PGRST_DB_URI: postgres://authenticator:mysecretpassword@db:5432/postgres
       PGRST_DB_SCHEMA: widgets
       PGRST_DB_ANON_ROLE: web_anon
-      PGRST_DB_POOL: 200
-      #PGRST_SERVER_TIMING_ENABLED: true #provides timing info for each request in the response header, it would be great to collect this data when testing
+      PGRST_DB_POOL: 400
+      #PGRST_SERVER_TIMING_ENABLED: true #provides timing info for each request in the response header.
     deploy:
-      replicas: 5
+      replicas: 2 # just for testing, real values would be 10-25
       resources:
         limits:
           cpus: '0.5'
@@ -40,69 +40,85 @@ services:
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - widgets-net
-    shm_size: "512mb"
     command: #testing passing cli arguments directly
       - "postgres"
       - "-c"
       - "shared_buffers=1GB"
       - "-c"
-      - "max_connections=1000"
+      - "max_connections=2000"
     deploy:
       resources:
         limits:
           memory: 4GB
         reservations:
           memory: 2GB
+    
+  
+  go-loader:
+    build: ./go-loader
+    environment:
+      MAX_WORKERS: 1
+    deploy:
+      replicas: 0
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 50M
+        reservations:
+          cpus: '0.25'
+          memory: 20M
+    networks:
+      - widgets-net
 
-  # python-loader:
-  #   build: ./python-loader
-  #   command: python /app/loader.py
-  #   volumes:
-  #     - ./python-loader:/app
-  #   environment:
-  #     QUEST_DB_URL: http://questdb:9009
-  #     PING__INTERVAL: 0.01
-  #   depends_on:
-  #     - postgrest
-  #     - questdb
-  #   networks:
-  #     - widgets-net
-  #   deploy:
-  #     replicas: 10
-  #     resources:
-  #       limits:
-  #         cpus: '0.1'
-  #         memory: 128M
-  #       reservations:
-  #         cpus: '0.05'
-  #         memory: 64M
+  python-loader:
+    build: ./python-loader
+    command: python /app/loader.py
+    volumes:
+      - ./python-loader:/app
+    environment:
+      QUEST_DB_URL: http://questdb:9009
+      PING__INTERVAL: 0.01
+    depends_on:
+      - postgrest
+      - questdb
+    networks:
+      - widgets-net
+    deploy:
+      replicas: 0
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
 
-  # questdb:
-  #   image: questdb/questdb:latest
-  #   ports:
-  #     - "9009:9009"
-  #     - "9000:9000"
-  #     - "8812"
-  #   volumes:
-  #     - questdb-data:/questdb/data
-  #   networks:
-  #     - widgets-net
+  questdb:
+    image: questdb/questdb:latest
+    ports:
+      - "9009:9009"
+      - "9000:9000"
+      - "8812"
+    volumes:
+      - questdb-data:/questdb/data
+    networks:
+      - widgets-net
 
-#   # grafana:
-#   #   image: grafana/grafana:latest
-#   #   ports:
-#   #     - "3001:3000"
-#   #   environment:
-#   #     GF_SECURITY_ADMIN_PASSWORD: admin
-#   #     GF_INSTALL_PLUGINS: questdb-questdb-datasource
-#   #   volumes:
-#   #     - grafana-data:/var/lib/grafana
-#   #     #- ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
-#   #     #- ./grafana/dashboards:/var/lib/grafana/dashboards
-#   #   depends_on:
-#   #     - questdb
-#   #   networks:
-#   #     - widgets-net
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: questdb-questdb-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      #- ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
+      #- ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - questdb
+    networks:
+      - widgets-net
 
 volumes:
   grafana-data:

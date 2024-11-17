@@ -45,7 +45,7 @@ Connection: keep-alive
 {"code":"23505","details":"Key (serial_number)=(E) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"widgets_serial_number_key\""}%
 ```
 
-4. In `docker-compose.yml` I left a testing infrastructure commented (python-loader, questdb). If uncommented this infrastructure will deploy several instances of python script that will start posting to /rpc/add_widget endpoint with random unique values and submit request duration measurements to QuestDB database.
+4. In `docker-compose.yml` I left scripts to loadtests disabled (python-loader, go-loader). If relevant containers given some replicas they will start posting to /rpc/add_widget endpoint with random unique values and submit request duration measurements to QuestDB database (there is a bug where golang script would submit the duration in a 'symbol' datatype. the script itself is a bit more performant than a python one, but a lot more convoluted in exchange).
 
 I found the easiest way to get the measurements was to connect to QuestDB WebUI at `http://localhost:9000/` and run the following query:
 ```sql
@@ -58,9 +58,11 @@ SAMPLE BY 1s
 ORDER by timestamp DESC;
 ```
 
-> *Note: I am still testing the settings. On my M1 Air capping at approx 400-500 successful requests per second with mostly sub 100ms average response times and sub 200ms MAX response times*
+> *Note 1: I am still testing the settings. On my M1 Air capping at approx 400-500 successful requests per second with mostly sub 100ms average response times and sub 200ms MAX response times*
 
-> Note: The Grafana container is for data visualization from QuestDB data, I'm still working on publishing dashboard config in docker-compose.
+> *Note 2: I am still testing the settings. On my M1 Air capping at approx 400-500 successful requests per second with mostly sub 100ms average response times and sub 200ms MAX response times*
+
+> *Note 3: The Grafana container is for data visualization from QuestDB data, I'm still working on publishing dashboard config in docker-compose*.
 
 ## Assignment
 

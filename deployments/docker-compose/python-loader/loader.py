@@ -49,4 +49,4 @@ def send_request():
 if __name__ == "__main__":
     while True:
         send_request()
-        time.sleep(ping_interval)
+        #time.sleep(ping_interval)
