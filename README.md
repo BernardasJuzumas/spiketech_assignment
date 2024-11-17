@@ -60,7 +60,7 @@ ORDER by timestamp DESC;
 
 > *Note 1: I am still testing the settings. On my M1 Air capping at approx 400-500 successful requests per second with mostly sub 100ms average response times and sub 200ms MAX response times*
 
-> *Note 3: The Grafana container is for data visualization from QuestDB data, I'm still working on publishing dashboard config in docker-compose*.
+> *Note 2: The Grafana container is for data visualization from QuestDB data, I'm still working on publishing dashboard config in docker-compose*.
 
 ## Assignment
 
