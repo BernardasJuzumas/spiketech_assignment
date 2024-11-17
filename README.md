@@ -232,6 +232,8 @@ autovacuum_analyze_threshold = 1000
 
 #### PostgREST
 
+PostgREST is quite performant. Two instances can fit on a single CPU core, handling approx 400 connections (it is advertised that on such instances it can do up to 2000). Since there will be up to 1000 connections - there's going to be a need for 3 of such instances. 2vCPUs + 3GB RAM total should satisfy this requirement.
+
 Setting up postgrest instance acan be done via environment viariables, config files or (even!) from the database. For now I will setup `settings.conf`:
 
 ```conf
@@ -239,12 +241,12 @@ db-uri = "postgres://authenticator:mysecretpassword@localhost:5432/postgres" #th
 db-schemas = "widgets" # the schema in which our solution operates
 db-anon-role = "web_anon" #this is the role we setup in our deployment file
 #server-port = 3000 #default, in some configurations like kubernetes this is auto-managed
-db-pool = 100 # !!!! Very important - this should be set as [1000 (max connections) / max instances of PostgREST]. Current configuration assumes we will be able to 'spin-up' up to 10 instances.
+db-pool = 400 # !!!! Very important - this should be set as [1000 (max connections) / max instances of PostgREST]. Current configuration assumes we will be able to 'spin-up' up to 10 instances.
 ```
 
 #### Load balancer
 
-Load balancer should be setup to distribute the load evenly between available instances of PostgREST assuming deployment where there are many.
+Load balancer should be setup to distribute the load evenly between available instances of PostgREST assuming deployment where there are many. The major concern is hits per second. For up to few thousand Nginx (or equivalent) running on a 2vCPUs should be sufficient.
 
 ## Deployment
 
