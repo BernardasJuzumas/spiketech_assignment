@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -26,11 +27,11 @@ const (
 
 type Config struct {
 	MaxWorkers int
-	QuestDB    *QuestDB
+	Victoria   *Victoria
 	HTTPClient *http.Client
 }
 
-type QuestDB struct {
+type Victoria struct {
 	client  *http.Client
 	address string
 }
@@ -51,7 +52,7 @@ type Worker struct {
 	jobs       chan struct{}
 	metrics    chan<- Metrics
 	httpClient *http.Client
-	questDB    *QuestDB
+	victoria   *Victoria
 	wg         *sync.WaitGroup
 }
 
@@ -85,7 +86,7 @@ func main() {
 			jobs:       jobs,
 			metrics:    metrics,
 			httpClient: cfg.HTTPClient,
-			questDB:    cfg.QuestDB,
+			victoria:   cfg.Victoria,
 			wg:         &wg,
 		}
 		wg.Add(1)
@@ -124,9 +125,9 @@ func loadConfig() (*Config, error) {
 		log.Printf("Warning: Invalid MAX_WORKERS value, using default: %d", maxWorkers)
 	}
 
-	questDBStr := os.Getenv("QUEST_DB_URL")
+	victoria := os.Getenv("VICTORIA_URL")
 	if err != nil {
-		questDBStr = "localhost:9009" // Default value
+		victoria = "http://localhost:8428" // Default value
 		log.Printf("Warning: Invalid MAX_WORKERS value, using default: %d", maxWorkers)
 	}
 
@@ -140,9 +141,9 @@ func loadConfig() (*Config, error) {
 	return &Config{
 		MaxWorkers: maxWorkers,
 		//nginxBaseURL: nginxStr,
-		QuestDB: &QuestDB{
+		Victoria: &Victoria{
 			client:  &http.Client{Timeout: 5 * time.Second},
-			address: questDBStr,
+			address: victoria,
 		},
 		HTTPClient: &http.Client{
 			Timeout: 10 * time.Second,
@@ -201,29 +202,33 @@ func (w *Worker) processRequest() (Metrics, error) {
 
 	duration := time.Since(startTime).Seconds()
 
-	// Send metrics to QuestDB
-	if err := w.questDB.sendMetrics(duration); err != nil {
-		log.Printf("Failed to send metrics to QuestDB: %v", err)
+	// Send metrics to Victoria Metrics
+	if err := w.victoria.sendMetrics(duration); err != nil {
+		log.Printf("Failed to send metrics to Victoria Metrics: %v", err)
 	}
 
 	return Metrics{Duration: duration}, nil
 }
 
-func (q *QuestDB) sendMetrics(duration float64) error {
-	// Create TCP connection
-	conn, err := net.Dial("tcp", q.address)
+func (q *Victoria) sendMetrics(duration float64) error {
+	// Format timestamp and data in Prometheus format
+	timestamp := time.Now().Unix()
+	data := fmt.Sprintf("request_times{label=\"duration\"} %v %d\n", duration, timestamp)
+	// Create HTTP POST request
+	resp, err := http.Post(
+		"http://victoria:8428/api/v1/import/prometheus",
+		"text/plain",
+		strings.NewReader(data),
+	)
 	if err != nil {
-		return fmt.Errorf("failed to connect to QuestDB: %w", err)
+		return fmt.Errorf("failed to send request to VictoriaMetrics: %w", err)
 	}
-	defer conn.Close()
+	defer resp.Body.Close()
 
-	// Format the line protocol message
-	line := fmt.Sprintf("%s,duration=%.6f %d\n", requestTimes, duration, time.Now().UnixMicro())
-
-	// Write directly to TCP connection
-	_, err = conn.Write([]byte(line))
-	if err != nil {
-		return fmt.Errorf("failed to send metrics: %w", err)
+	// Check response status
+	if resp.StatusCode != http.StatusNoContent { // 204
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to send metrics: status=%d, response=%s", resp.StatusCode, string(body))
 	}
 
 	return nil
