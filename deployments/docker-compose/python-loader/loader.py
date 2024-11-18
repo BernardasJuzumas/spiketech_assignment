@@ -6,10 +6,7 @@ import os
 from questdb.ingress import Sender, TimestampNanos
 
 # Settings
-ping_interval = float(os.getenv('PING__INTERVAL', '0.1'))
-
-# QuestDB ingestion endpoint
-#ingest_url = f"{questdb_url}/imp"
+ping_interval = float(os.getenv('PING__INTERVAL', '0.2'))
 
 def generate_random_string(length=10):
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
@@ -32,19 +29,26 @@ def send_request():
     end_time = time.time()
 
     response_time = end_time - start_time
-    print(f"Request took {response_time:.3f} seconds")
+    response_status = response.status_code
+    print(f"Request took {response_time:.3f} seconds with status code {response_status}")
 
-    # Format data in InfluxDB line protocol
-    line = f"request_times::duration={response_time:.6f}"
+    VICTORIA_METRICS_URL = "http://victoria:8428/api/v1/import/prometheus"
+    # Prepare data in Prometheus format
+    # metric_name = "request_times"
+    # labels = 'duration'
+    timestamp = int(time.time())  # Current timestamp in milliseconds
 
-    # Write to QuestDB
-    conf = f'http::addr=questdb:9000;'
-    with Sender.from_conf(conf) as sender:
-        sender.row(
-            'request_times',
-            columns={'duration': response_time},
-            at=TimestampNanos.now()
-            )
+    #data = f'{metric_name}{{{labels}}} {value} {timestamp}\n'
+    data = 'request_times{label="duration"} '+str(response_time)+' '+str(timestamp)+'\n'
+    print(data)
+
+
+    response = requests.post(VICTORIA_METRICS_URL, data=data)
+
+    if response.status_code == 204:
+        print("Data sent successfully!")
+    else:
+        print(f"Failed to send data: {response.text}")
 
 if __name__ == "__main__":
     while True:

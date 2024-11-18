@@ -7,7 +7,7 @@
 1. Navigate to `deployments/docker-compose`:
 ```shell
 > cd deployments/docker-compose
-> docker-compose up
+> docker-compose up --build -d
 ```
 
 2. Localhost leads to OpenAPI specification of the api. All the api function calls are available through /rpc/{function name} path. The paths available will be listed in the spec:
@@ -45,22 +45,14 @@ Connection: keep-alive
 {"code":"23505","details":"Key (serial_number)=(E) already exists.","hint":null,"message":"duplicate key value violates unique constraint \"widgets_serial_number_key\""}%
 ```
 
-4. In `docker-compose.yml` I left scripts to loadtests disabled (python-loader, go-loader). If relevant containers given some replicas they will start posting to /rpc/add_widget endpoint with random unique values and submit request duration measurements to QuestDB database (there is a bug where golang script would submit the duration in a 'symbol' datatype. the script itself is a bit more performant than a python one, but a lot more convoluted in exchange).
-
-I found the easiest way to get the measurements was to connect to QuestDB WebUI at `http://localhost:9000/` and run the following query:
-```sql
-SELECT COUNT(*) AS requests, 
-       AVG(duration) AS avg_duration,
-       MAX(duration) AS maximum_duration,
-       timestamp
-FROM request_times
-SAMPLE BY 1s
-ORDER by timestamp DESC;
+4. In `docker-compose.yml` I added a container with small go program to load test the environment. To use it launch docker compose with the following settings:
+```bash
+env GO_LOADER_REPLICAS=1 docker compose up --build -d
 ```
+(you can increase a number of replicas at your own peril, my oldie M1 Air is throttling)
 
-> *Note 1: I am still testing the settings. On my M1 Air capping at approx 400-500 successful requests per second with mostly sub 100ms average response times and sub 200ms MAX response times*
-
-> *Note 2: The Grafana container is for data visualization from QuestDB data, I'm still working on publishing dashboard config in docker-compose*.
+The results are stored in victoria-metrics database, assuming the same setup (localhost), the [live report can be accessed here](http://localhost:8428/vmui/#/?g0.range_input=5m&g0.end_input=2024-11-18T10%3A01%3A12&g0.relative_time=last_5_minutes&g0.tab=0&g0.expr=count_over_time%28request_times%5B1s%5D%29&g1.range_input=5m&g1.end_input=2024-11-18T10%3A01%3A12&g1.relative_time=last_5_minutes&g1.tab=0&g1.expr=avg_over_time%28request_times%5B1s%5D%29*10000&g0.step_input=1s&g1.step_input=1s)
+> *Note: I have adjusted the scale of response times for better visibility (multiplied by 10000) as they are mostly sub-20ms each*
 
 ## Assignment
 

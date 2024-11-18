@@ -19,14 +19,14 @@ services:
       PGRST_DB_POOL: 400
       #PGRST_SERVER_TIMING_ENABLED: true #provides timing info for each request in the response header.
     deploy:
-      replicas: 2 # just for testing, real values would be 10-25
+      replicas: 10 # just for testing, real values would be 10-25
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
+          cpus: '0.2'
+          memory: 128M
         reservations:
           cpus: '0.1'
-          memory: 256M
+          memory: 128M
     networks:
       - widgets-net
 
@@ -45,21 +45,21 @@ services:
       - "-c"
       - "shared_buffers=1GB"
       - "-c"
-      - "max_connections=2000"
+      - "max_connections=4000"
     deploy:
       resources:
         limits:
           memory: 4GB
         reservations:
           memory: 2GB
-    
   
   go-loader:
     build: ./go-loader
     environment:
-      MAX_WORKERS: 1
+      MAX_WORKERS: 10
+      NGINX_URL: http://nginx:80
     deploy:
-      replicas: 0
+      replicas: ${GO_LOADER_REPLICAS:-0}
       resources:
         limits:
           cpus: '0.50'
@@ -70,59 +70,41 @@ services:
     networks:
       - widgets-net
 
-  python-loader:
-    build: ./python-loader
-    command: python /app/loader.py
-    volumes:
-      - ./python-loader:/app
-    environment:
-      QUEST_DB_URL: http://questdb:9009
-      PING__INTERVAL: 0.01
-    depends_on:
-      - postgrest
-      - questdb
-    networks:
-      - widgets-net
-    deploy:
-      replicas: 0
-      resources:
-        limits:
-          cpus: '0.2'
-          memory: 128M
-        reservations:
-          cpus: '0.05'
-          memory: 64M
 
-  questdb:
-    image: questdb/questdb:latest
-    ports:
-      - "9009:9009"
-      - "9000:9000"
-      - "8812"
-    volumes:
-      - questdb-data:/questdb/data
-    networks:
-      - widgets-net
+### Below is an image i used to test the integaration before defaulting to go for speed.
+  # python-loader:
+  #   build: ./python-loader
+  #   command: python /app/loader.py
+  #   volumes:
+  #     - ./python-loader:/app
+  #   environment:
+  #     PING__INTERVAL: 0.2
+  #   depends_on:
+  #     - postgrest
+  #     - victoria
+  #   networks:
+  #     - widgets-net
+  #   deploy:
+  #     replicas: 0
+  #     resources:
+  #       limits:
+  #         cpus: '0.2'
+  #         memory: 128M
+  #       reservations:
+  #         cpus: '0.05'
+  #         memory: 64M
 
-  grafana:
-    image: grafana/grafana:latest
+  victoria:
+    image: victoriametrics/victoria-metrics:latest
     ports:
-      - "3001:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_INSTALL_PLUGINS: questdb-questdb-datasource
+      - "8428:8428"
     volumes:
-      - grafana-data:/var/lib/grafana
-      #- ./grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/main.yaml
-      #- ./grafana/dashboards:/var/lib/grafana/dashboards
-    depends_on:
-      - questdb
+      - ./victoria-metrics-data:/victoria-metrics-data
     networks:
       - widgets-net
 
 volumes:
-  grafana-data:
-  questdb-data:
+  victoria-metrics-data:
 
 networks:
   widgets-net:
