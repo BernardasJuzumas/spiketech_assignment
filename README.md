@@ -62,12 +62,12 @@ Lines:
  - Red - request count per 5s. 
  - Green - average response time in seconds. 
  - Blue - mean response time in seconds. 
- - Purple - inversed MAX response time in seconds. All times are multiplied by 10000 for measurements to be visible.
- 
+ - Purple - inversed MAX response time in seconds.
+
 All times values are multiplied by 10000 for measurements to be visible.
 Interval is 5s per point, to have a bit less variation.
 
-**Important factor** is that my development machine is actively throttling at more heavy workloads. For this I have an inversed purple line that correlates with the amount of requests sent. It indicates the throttling happening in the background which distorts the testing data a little.
+**Important factor** is that my development machine is actively throttling at more heavy workloads. For this I have an inversed purple line that correlates with the amount of requests sent (the longer the delay - the bigger the throttling and the less requests are sent in general). It indicates the throttling happening in the background which distorts the testing data a little.
 
 Even despite the throttling it is visible that the baseline (green and blue lines) is barely impacted by the amount of requests the system is handling. The next step is to do a full load test on a sufficient hardware. Perhaps expand testing to more operations that simple join-writes.
 
