@@ -63,6 +63,7 @@ Lines:
  - Green - average response time in seconds. 
  - Blue - mean response time in seconds. 
  - Purple - inversed MAX response time in seconds. All times are multiplied by 10000 for measurements to be visible.
+ 
 All times values are multiplied by 10000 for measurements to be visible.
 Interval is 5s per point, to have a bit less variation.
 
