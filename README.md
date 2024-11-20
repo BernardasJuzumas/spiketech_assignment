@@ -6,9 +6,9 @@
 **Using docker-compose**
 1. Navigate to `deployments/docker-compose`:
 ```shell
-> git clone https://github.com/BernardasJuzumas/widgets_inc_api
-> cd widgets_inc_api
-> docker-compose up --build -d
+$ git clone https://github.com/BernardasJuzumas/widgets_inc_api
+$ cd widgets_inc_api
+$ docker-compose up --build -d
 ```
 
 2. Localhost leads to OpenAPI specification of the api. All the api function calls are available through /rpc/{function name} path. The paths available will be listed in the spec:
@@ -48,7 +48,7 @@ Connection: keep-alive
 
 4. In `docker-compose.yml` I added a container with small go program to load test the environment. To use it launch docker compose with the following settings:
 ```bash
-env GO_LOADER_REPLICAS=1 docker compose up --build -d
+$ env GO_LOADER_REPLICAS=1 docker compose up --build -d
 ```
 (you can increase a number of replicas at your own peril, my oldie M1 Air is throttling)
 
