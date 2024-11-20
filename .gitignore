@@ -1,3 +1,3 @@
 .vscode
 .DS_Store
-deployments/docker-compose/victoria-metrics-data
+victoria-metrics-data

@@ -27,13 +27,17 @@ const (
 
 type Config struct {
 	MaxWorkers int
+	Nginx      *Nginx
 	Victoria   *Victoria
-	HTTPClient *http.Client
 }
 
 type Victoria struct {
-	client  *http.Client
 	address string
+}
+
+type Nginx struct {
+	address string
+	client  *http.Client
 }
 
 type Request struct {
@@ -51,12 +55,11 @@ type Worker struct {
 	id         int
 	jobs       chan struct{}
 	metrics    chan<- Metrics
-	httpClient *http.Client
 	victoria   *Victoria
+	nginx      *Nginx
 	wg         *sync.WaitGroup
+	httpClient *http.Client
 }
-
-var nginxBaseURL string
 
 func main() {
 	// Setup logging
@@ -82,12 +85,11 @@ func main() {
 	// Start workers
 	for i := 0; i < cfg.MaxWorkers; i++ {
 		worker := &Worker{
-			id:         i,
-			jobs:       jobs,
-			metrics:    metrics,
-			httpClient: cfg.HTTPClient,
-			victoria:   cfg.Victoria,
-			wg:         &wg,
+			id:       i,
+			jobs:     jobs,
+			metrics:  metrics,
+			victoria: cfg.Victoria,
+			wg:       &wg,
 		}
 		wg.Add(1)
 		go worker.start(ctx)
@@ -127,31 +129,23 @@ func loadConfig() (*Config, error) {
 
 	victoria := os.Getenv("VICTORIA_URL")
 	if err != nil {
-		victoria = "http://localhost:8428" // Default value
-		log.Printf("Warning: Invalid MAX_WORKERS value, using default: %d", maxWorkers)
+		victoria = "http://localhost:8428" // Default port for local testing
+		log.Printf("Warning: Invalid VICTORIA_URL value, using default: %s", victoria)
 	}
 
-	nginxStr := os.Getenv("NGINX_URL")
+	nginx := os.Getenv("NGINX_URL")
 	if err != nil {
-		nginxStr = "http://localhost" // Default value
-		log.Printf("Warning: Invalid MAX_WORKERS value, using default: %d", maxWorkers)
+		nginx = "http://localhost" // Default url for local testing
+		log.Printf("Warning: Invalid NGINX_URL value, using default: %s", nginx)
 	}
-	nginxBaseURL = nginxStr
 
 	return &Config{
 		MaxWorkers: maxWorkers,
-		//nginxBaseURL: nginxStr,
 		Victoria: &Victoria{
-			client:  &http.Client{Timeout: 5 * time.Second},
 			address: victoria,
 		},
-		HTTPClient: &http.Client{
-			Timeout: 10 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns:        100,
-				MaxIdleConnsPerHost: 100,
-				IdleConnTimeout:     90 * time.Second,
-			},
+		Nginx: &Nginx{
+			address: nginx,
 		},
 	}, nil
 }
@@ -180,7 +174,7 @@ func (w *Worker) start(ctx context.Context) {
 func (w *Worker) processRequest() (Metrics, error) {
 	startTime := time.Now()
 
-	// Generate request payload
+	// Generate request payload (move to separate function and add more requests)
 	req := Request{
 		WidgetSN:   generateRandomString(10),
 		WidgetName: generateRandomString(10),
@@ -193,8 +187,8 @@ func (w *Worker) processRequest() (Metrics, error) {
 		return Metrics{}, fmt.Errorf("failed to encode request: %w", err)
 	}
 
-	// Send request
-	resp, err := w.httpClient.Post(fmt.Sprintf("%s/rpc/add_widget", nginxBaseURL), "application/json", payload)
+	// Send add_widget request
+	resp, err := w.httpClient.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -216,7 +210,7 @@ func (q *Victoria) sendMetrics(duration float64) error {
 	data := fmt.Sprintf("request_times{label=\"duration\"} %v %d\n", duration, timestamp)
 	// Create HTTP POST request
 	resp, err := http.Post(
-		"http://victoria:8428/api/v1/import/prometheus",
+		q.address,
 		"text/plain",
 		strings.NewReader(data),
 	)

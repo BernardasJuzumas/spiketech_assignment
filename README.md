@@ -6,7 +6,8 @@
 **Using docker-compose**
 1. Navigate to `deployments/docker-compose`:
 ```shell
-> cd deployments/docker-compose
+> git clone https://github.com/BernardasJuzumas/widgets_inc_api
+> cd widgets_inc_api
 > docker-compose up --build -d
 ```
 
@@ -136,7 +137,7 @@ Testing to be done in:
 
 #### Schema, Tables, types and indexes
 
-[SQL for creating schema, type, tables and indexes is here](sql/1.widgets-create-tables-types-indexes.sql)
+[SQL for creating schema, type, tables and indexes is here](sample-sql/1.widgets-create-tables-types-indexes.sql)
 
 **Schema:**
 Reserving dedicated namespace `widgets`.
@@ -169,18 +170,18 @@ Even though partitoning would help parallelize the work, creating a schema that 
 #### Functions
 All functions are defined with admin privileges (the definer role must be administrative) so only permissions to these functions and not the affected tables and operations need to be granted to execute them. This is common security practice that will come in handy when connecting to API middleware.
 
-[Add_widget (serial number, name, port slots)](sql/2.widgets-function-add_widget.sql)
+[Add_widget (serial number, name, port slots)](sample-sql/2.widgets-function-add_widget.sql)
 This function adds a widget and creates relevant ports, and returns success message or throws error if duplicate entry exists. It expects widgets serial number and name as text value, and a list of supported ports as an array.
 
-[Associate_widgets(widget serial number, another widget's serial number, port)](sql/3.widgets-function_associate_widgets.sql)
+[Associate_widgets(widget serial number, another widget's serial number, port)](sample-sql/3.widgets-function_associate_widgets.sql)
 This function checks that both referenced widgets exist, that both have an open port slot of the defined type and then associates both widgets by 
 getting setting their id's in each others association field.
 The complexity here is that because I am avoiding additional id index on slots table I had to use cursors to target and lock specific rows for update. Otherwise there is a possibility to update more than one row. Functional, but a bit less readible.
 
-[Remove_association(widget serial number, another widget's serial number, port)](sql/4.widgets-function_remove_association.sql)
+[Remove_association(widget serial number, another widget's serial number, port)](sample-sql/4.widgets-function_remove_association.sql)
 Removes association between widgets. Ensures that both widgets exist, that association exists and then removes it.
 
-[Remove_widget(widget serial number)](sql/5.widgets-function-remove_widget.sql)
+[Remove_widget(widget serial number)](sample-sql/5.widgets-function-remove_widget.sql)
 Deletes a widget of a given serial number. The resulting row updates are cascading as per table column value restriction definitions explained earlier.
 
 #### Users and Groups
@@ -195,13 +196,13 @@ Web service will authenticate to service using `authenticator` credentials.
 
 #### Testing database, quick benchmark
 
-To be very honest writing proper tests is simply not in the cards time-wise. I test all functionality manually [HERE](sql/widgets-tests.sql), seems to work.
+To be very honest writing proper tests is simply not in the cards time-wise. I test all functionality manually [HERE](sample-sql/widgets-tests.sql), seems to work.
 
-I wrote helper function [generate_random_widget](sql/widgets-function-generate_random_widget.sql) and a query [to generate test data](sql/widgets-generate-widgets.sql) to populate test data. Takes nearly 40 minutes to complete on my old m1 air which is a good sign, as 10mil transactions (every of which performs multiple scans on both tables/indexes) per 600 second = 4k+ transactions/s. Without optimizations or sufficient RAM to boot. On the other hand the script does not consider multiple managed connections, which may become a bottleneck if not handled with care.
+I wrote helper function [generate_random_widget](sample-sql/widgets-function-generate_random_widget.sql) and a query [to generate test data](sample-sql/widgets-generate-widgets.sql) to populate test data. Takes nearly 40 minutes to complete on my old m1 air which is a good sign, as 10mil transactions (every of which performs multiple scans on both tables/indexes) per 600 second = 4k+ transactions/s. Without optimizations or sufficient RAM to boot. On the other hand the script does not consider multiple managed connections, which may become a bottleneck if not handled with care.
 
-(Note: in [test data generation script](sql/widgets-generate-widgets.sql)) I also provide a potentially faster approach to  generate test data (commented), that is using parallelization where the query is explicitly set to supress any messages and but this approach does not simmulate immediate database commits.
+(Note: in [test data generation script](sample-sql/widgets-generate-widgets.sql)) I also provide a potentially faster approach to  generate test data (commented), that is using parallelization where the query is explicitly set to supress any messages and but this approach does not simmulate immediate database commits.
 
-Lastly [a query to check our table index size](sql/widgets-generate-widgets.sql)) helps to determine the optimal memory resources to conveniently accomodate inxes in system RAM.
+Lastly [a query to check our table index size](sample-sql/widgets-generate-widgets.sql)) helps to determine the optimal memory resources to conveniently accomodate inxes in system RAM.
 
 ### Configuration
 
