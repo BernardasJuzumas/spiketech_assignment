@@ -4,7 +4,7 @@
 ### Local deployment
 
 **Using docker-compose**
-1. Navigate to `deployments/docker-compose`:
+1. Clone this repository using [git](https://git-scm.com/)  and launch it using [docker compose](https://docs.docker.com/compose/):
 ```shell
 $ git clone https://github.com/BernardasJuzumas/widgets_inc_api
 $ cd widgets_inc_api
@@ -263,7 +263,7 @@ This solution is relatively simple to deploy in various configurations. I will p
 
 ### Local deployment
 
-The solution can be deployed and tested locally using a [docker-compose file](deployments/docker-compose/docker-compose.yml)).
+The solution can be deployed and tested locally using provided [docker-compose file](docker-compose.yml)).
 
 ### Cloud-native (AWS)
 
