@@ -148,11 +148,11 @@ The enum `port_type` will allow to conveniently enforce only the allowed ports.
 
 **Tables:**
 
-Widgets will be held separately from their slots. `Widgets` table will create the relation between their serial number and their key, while `slots` will hold every slot of a widget and it's possbile association. 
+Widgets will be held separately from their slots. `Widgets` table will create the relation between their serial number and their key, while `slots` will hold every slot of a widget and its possbile association. 
 
-This way the operations for associating slots will be much faster and this allows of utilizing SQL basic features like enforcing constrants (widget can't associate to itself) cascading updates (when widget is deleted it's slots get deleted too, and the associations become NULL).
+This way the operations for associating slots will be much faster and this allows of utilizing SQL basic features like enforcing constrants (widget can't associate to itself) cascading updates (when widget is deleted its slots get deleted, and the associations become NULL).
 
-A side effect of this decision is that when creating an association there will have to be 2 inserts: 1 in the associating table and one in the receiving one. This is solved with SQL transactional logic, defined in 'Functions' paragraph ahead.
+A side effect of this decision is that when creating an association there will have to be 2 inserts: 1 in the associating row and one in the receiving one. This is solved with SQL transactional logic, defined in 'Functions' paragraph ahead.
 
 **Indexes:**
 
@@ -168,12 +168,12 @@ Since widgets table must ensure uniqueness of serial number and id separately th
 Even though partitoning would help parallelize the work, creating a schema that would allow utilizing partitions seems less efficient at a glance. This is definitely in my mind for future, but let's get on with the rest of the solution.
 
 #### Functions
-All functions are defined with admin privileges (the definer role must be administrative) so only permissions to these functions and not the affected tables and operations need to be granted to execute them. This is common security practice that will come in handy when connecting to API middleware.
+All functions are explicitly defined with elevated privileges - the definer role must be able to select, insert, update and delete in all affected tables of the `widgets` schema. This way the interface will only require permissions to these functions and not the affected tables and their other methods. This is a common security practice that will come in handy when connecting to API middleware.
 
 [Add_widget (serial number, name, port slots)](sample-sql/2.widgets-function-add_widget.sql)
 This function adds a widget and creates relevant ports, and returns success message or throws error if duplicate entry exists. It expects widgets serial number and name as text value, and a list of supported ports as an array.
 
-[Associate_widgets(widget serial number, another widget's serial number, port)](sample-sql/3.widgets-function_associate_widgets.sql)
+[Associate_widgets(widget serial number, another widget's serial number, port)](sample-sql/3.widgets-function-associate_widgets.sql)
 This function checks that both referenced widgets exist, that both have an open port slot of the defined type and then associates both widgets by 
 getting setting their id's in each others association field.
 The complexity here is that because I am avoiding additional id index on slots table I had to use cursors to target and lock specific rows for update. Otherwise there is a possibility to update more than one row. Functional, but a bit less readible.
@@ -186,7 +186,7 @@ Deletes a widget of a given serial number. The resulting row updates are cascadi
 
 #### Users and Groups
 
-Per best practices let's create two roles
+Per best practices two roles are created:
  - `web-anon` to manage schema and method access
  - `authenticator` to manage authentication
 
@@ -196,11 +196,11 @@ Web service will authenticate to service using `authenticator` credentials.
 
 #### Testing database, quick benchmark
 
-To be very honest writing proper tests is simply not in the cards time-wise. I test all functionality manually [HERE](sample-sql/widgets-tests.sql), seems to work.
+To be very honest writing proper tests is simply not in the cards time-wise. I tested all functionality manually [HERE](sample-sql/widgets-tests.sql), and it works.
 
-I wrote helper function [generate_random_widget](sample-sql/widgets-function-generate_random_widget.sql) and a query [to generate test data](sample-sql/widgets-generate-widgets.sql) to populate test data. Takes nearly 40 minutes to complete on my old m1 air which is a good sign, as 10mil transactions (every of which performs multiple scans on both tables/indexes) per 600 second = 4k+ transactions/s. Without optimizations or sufficient RAM to boot. On the other hand the script does not consider multiple managed connections, which may become a bottleneck if not handled with care.
+I wrote helper function [generate_random_widget](sample-sql/widgets-function-generate_random_widget.sql) and a query [to generate test data](sample-sql/widgets-generate-widgets.sql) to populate test data. Takes nearly 40 minutes to complete on my old m1 air which is a good sign, as 10mil transactions (every of which performs multiple scans on both tables/indexes) per 600 second = 4k+ transactions/s. Without optimizations or sufficient CPU/RAM to boot. On the other hand the script does not consider multiple managed connections, which may become a bottleneck if not handled with care.
 
-(Note: in [test data generation script](sample-sql/widgets-generate-widgets.sql)) I also provide a potentially faster approach to  generate test data (commented), that is using parallelization where the query is explicitly set to supress any messages and but this approach does not simmulate immediate database commits.
+(Note: in [test data generation script](sample-sql/widgets-generate-widgets.sql)) I also provide a (much) faster approach to  generate test data (commented, takes ~4-5 mins), that is using parallelization and the query is explicitly set to supress any messages, but this approach does not simmulate immediate database commits.
 
 Lastly [a query to check our table index size](sample-sql/widgets-generate-widgets.sql)) helps to determine the optimal memory resources to conveniently accomodate inxes in system RAM.
 
