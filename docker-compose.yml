@@ -43,9 +43,19 @@ services:
     command:
       - "postgres"
       - "-c"
-      - "shared_buffers=1GB"
+      - "shared_buffers=4GB"
       - "-c"
       - "max_connections=4000"
+      # - "-c"
+      # - "maintenance_work_mem=512MB"
+      # - "-c"
+      # - "autovacuum_vacuum_scale_factor=0.05"
+      # - "-c"
+      # - "autovacuum_analyze_scale_factor=0.02"
+      # - "-c"
+      # - "autovacuum_vacuum_threshold=1000"
+      # - "-c"
+      # - "autovacuum_analyze_threshold=1000"
     deploy:
       resources:
         limits:
