@@ -52,7 +52,7 @@ $ env GO_LOADER_REPLICAS=1 docker compose up --build -d
 ```
 (you can increase a number of replicas at your own peril, my oldie M1 Air is throttling)
 
-The results are stored in victoria-metrics database, assuming the same setup (localhost), the [live report can be accessed here](http://localhost:8428/vmui/#/?g0.range_input=5m&g0.end_input=2024-11-18T10%3A01%3A12&g0.relative_time=last_5_minutes&g0.tab=0&g0.expr=count_over_time%28request_times%5B1s%5D%29&g1.range_input=5m&g1.end_input=2024-11-18T10%3A01%3A12&g1.relative_time=last_5_minutes&g1.tab=0&g1.expr=avg_over_time%28request_times%5B1s%5D%29*10000&g0.step_input=1s&g1.step_input=1s)
+The results are stored in victoria-metrics database, assuming the same setup (localhost), the [live report can be accessed here](http://localhost:8428/vmui/?#/?g0.range_input=5mg0.relative_time=last_5_minutes&g0.tab=0&g0.expr=count_over_time%28request_times%5B1s%5D%29&g1.expr=avg_over_time%28request_times%5B1s%5D%29*10000&g1.range_input=5m&g1.relative_time=last_5_minutes&g1.tab=0&g2.expr=median_over_time%28request_times%5B1s%5D%29*10000&g2.range_input=5m&g2.relative_time=last_5_minutes&g2.tab=0&g3.expr=-max_over_time%28request_times%5B1s%5D%29*10000&g3.range_input=5m&g3.relative_time=last_5_minutes&g3.tab=0)
 > *Note: I have adjusted the scale of response times for better visibility (multiplied by 10000) as they are mostly sub-20ms each*
 
 5. Initial performance measurements (as shown in the image below) show positive results.
