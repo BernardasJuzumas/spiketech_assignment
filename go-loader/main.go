@@ -19,10 +19,11 @@ import (
 )
 
 const (
-	letterBytes       = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	addWidgetEndpoint = "rpc/add_widget"
-	requestTimes      = "request_times"
-	durationField     = "duration"
+	letterBytes                = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	addWidgetEndpoint          = "rpc/add_widget"
+	victoriaPrometheusEndpoint = "api/v1/import/prometheus"
+	requestTimes               = "request_times"
+	durationField              = "duration"
 )
 
 type Config struct {
@@ -37,7 +38,6 @@ type Victoria struct {
 
 type Nginx struct {
 	address string
-	client  *http.Client
 }
 
 type Request struct {
@@ -52,13 +52,12 @@ type Metrics struct {
 
 // Worker represents a single worker in the pool
 type Worker struct {
-	id         int
-	jobs       chan struct{}
-	metrics    chan<- Metrics
-	victoria   *Victoria
-	nginx      *Nginx
-	wg         *sync.WaitGroup
-	httpClient *http.Client
+	id       int
+	jobs     chan struct{}
+	metrics  chan<- Metrics
+	victoria *Victoria
+	nginx    *Nginx
+	wg       *sync.WaitGroup
 }
 
 func main() {
@@ -89,6 +88,7 @@ func main() {
 			jobs:     jobs,
 			metrics:  metrics,
 			victoria: cfg.Victoria,
+			nginx:    cfg.Nginx,
 			wg:       &wg,
 		}
 		wg.Add(1)
@@ -188,7 +188,7 @@ func (w *Worker) processRequest() (Metrics, error) {
 	}
 
 	// Send add_widget request
-	resp, err := w.httpClient.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
+	resp, err := http.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -209,8 +209,9 @@ func (q *Victoria) sendMetrics(duration float64) error {
 	timestamp := time.Now().Unix()
 	data := fmt.Sprintf("request_times{label=\"duration\"} %v %d\n", duration, timestamp)
 	// Create HTTP POST request
+	endpoint := fmt.Sprintf("%s/%s", q.address, victoriaPrometheusEndpoint)
 	resp, err := http.Post(
-		q.address,
+		endpoint,
 		"text/plain",
 		strings.NewReader(data),
 	)

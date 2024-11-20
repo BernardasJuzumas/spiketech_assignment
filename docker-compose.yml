@@ -58,6 +58,7 @@ services:
     environment:
       MAX_WORKERS: 10
       NGINX_URL: http://nginx:80
+      VICTORIA_URL: http://victoria:8428
     deploy:
       replicas: ${GO_LOADER_REPLICAS:-0}
       resources:
