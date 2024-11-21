@@ -30,6 +30,7 @@ type Config struct {
 	MaxWorkers int
 	Nginx      *Nginx
 	Victoria   *Victoria
+	HTTPClient *http.Client
 }
 
 type Victoria struct {
@@ -52,12 +53,13 @@ type Metrics struct {
 
 // Worker represents a single worker in the pool
 type Worker struct {
-	id       int
-	jobs     chan struct{}
-	metrics  chan<- Metrics
-	victoria *Victoria
-	nginx    *Nginx
-	wg       *sync.WaitGroup
+	id         int
+	jobs       chan struct{}
+	metrics    chan<- Metrics
+	victoria   *Victoria
+	nginx      *Nginx
+	httpClient *http.Client
+	wg         *sync.WaitGroup
 }
 
 func main() {
@@ -84,12 +86,13 @@ func main() {
 	// Start workers
 	for i := 0; i < cfg.MaxWorkers; i++ {
 		worker := &Worker{
-			id:       i,
-			jobs:     jobs,
-			metrics:  metrics,
-			victoria: cfg.Victoria,
-			nginx:    cfg.Nginx,
-			wg:       &wg,
+			id:         i,
+			jobs:       jobs,
+			metrics:    metrics,
+			victoria:   cfg.Victoria,
+			nginx:      cfg.Nginx,
+			httpClient: cfg.HTTPClient,
+			wg:         &wg,
 		}
 		wg.Add(1)
 		go worker.start(ctx)
@@ -147,6 +150,14 @@ func loadConfig() (*Config, error) {
 		Nginx: &Nginx{
 			address: nginx,
 		},
+		HTTPClient: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        1000,
+				MaxIdleConnsPerHost: 1000,
+				IdleConnTimeout:     2 * time.Second,
+			},
+		},
 	}, nil
 }
 
@@ -188,7 +199,7 @@ func (w *Worker) processRequest() (Metrics, error) {
 	}
 
 	// Send add_widget request
-	resp, err := http.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
+	resp, err := w.httpClient.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -230,6 +241,7 @@ func (q *Victoria) sendMetrics(duration float64) error {
 }
 
 func collectMetrics(ctx context.Context, metrics <-chan Metrics) {
+	var sentRequests int64
 	var totalRequests int64
 	var totalDuration float64
 	ticker := time.NewTicker(1 * time.Second)
@@ -240,13 +252,15 @@ func collectMetrics(ctx context.Context, metrics <-chan Metrics) {
 		case <-ctx.Done():
 			return
 		case m := <-metrics:
+			sentRequests++
 			totalRequests++
 			totalDuration += m.Duration
 		case <-ticker.C:
-			if totalRequests > 0 {
+			if sentRequests > 0 {
 				avgDuration := totalDuration / float64(totalRequests)
-				log.Printf("Metrics: Total requests: %d, Average duration: %.3fs",
-					totalRequests, avgDuration)
+				log.Printf("Metrics: Requests per second: %d, Total requests: %d, Average duration: %.3fs",
+					sentRequests, totalRequests, avgDuration)
+				sentRequests = 0
 			}
 		}
 	}
