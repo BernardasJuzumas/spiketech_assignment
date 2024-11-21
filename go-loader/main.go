@@ -30,15 +30,16 @@ type Config struct {
 	MaxWorkers int
 	Nginx      *Nginx
 	Victoria   *Victoria
-	HTTPClient *http.Client
 }
 
 type Victoria struct {
 	address string
+	*http.Client
 }
 
 type Nginx struct {
 	address string
+	*http.Client
 }
 
 type Request struct {
@@ -53,13 +54,12 @@ type Metrics struct {
 
 // Worker represents a single worker in the pool
 type Worker struct {
-	id         int
-	jobs       chan struct{}
-	metrics    chan<- Metrics
-	victoria   *Victoria
-	nginx      *Nginx
-	httpClient *http.Client
-	wg         *sync.WaitGroup
+	id       int
+	jobs     chan struct{}
+	metrics  chan<- Metrics
+	victoria *Victoria
+	nginx    *Nginx
+	wg       *sync.WaitGroup
 }
 
 func main() {
@@ -86,13 +86,12 @@ func main() {
 	// Start workers
 	for i := 0; i < cfg.MaxWorkers; i++ {
 		worker := &Worker{
-			id:         i,
-			jobs:       jobs,
-			metrics:    metrics,
-			victoria:   cfg.Victoria,
-			nginx:      cfg.Nginx,
-			httpClient: cfg.HTTPClient,
-			wg:         &wg,
+			id:       i,
+			jobs:     jobs,
+			metrics:  metrics,
+			victoria: cfg.Victoria,
+			nginx:    cfg.Nginx,
+			wg:       &wg,
 		}
 		wg.Add(1)
 		go worker.start(ctx)
@@ -132,31 +131,41 @@ func loadConfig() (*Config, error) {
 
 	victoria := os.Getenv("VICTORIA_URL")
 	if err != nil {
-		victoria = "http://localhost:8428" // Default port for local testing
-		log.Printf("Warning: Invalid VICTORIA_URL value, using default: %s", victoria)
+		victoria = "http://localhost:8428" // Default url:port for local testing
+		log.Printf("Warning: Invalid or missing VICTORIA_URL value, using default: %s", victoria)
 	}
 
 	nginx := os.Getenv("NGINX_URL")
 	if err != nil {
 		nginx = "http://localhost" // Default url for local testing
-		log.Printf("Warning: Invalid NGINX_URL value, using default: %s", nginx)
+		log.Printf("Warning: Invalid or missing NGINX_URL value, using default: %s", nginx)
+	}
+
+	connsStr := os.Getenv("MAX_IDLE_CONNS")
+	conns, err := strconv.Atoi(connsStr)
+	if err != nil {
+		conns = 1000 // Default for local testing
+		log.Printf("Warning: Invalid or missing MAX_IDLE_CONNS value, using default: %v", conns)
+	}
+
+	hp := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        conns,
+			MaxIdleConnsPerHost: conns,
+			IdleConnTimeout:     2 * time.Second,
+		},
 	}
 
 	return &Config{
 		MaxWorkers: maxWorkers,
 		Victoria: &Victoria{
 			address: victoria,
+			Client:  hp,
 		},
 		Nginx: &Nginx{
 			address: nginx,
-		},
-		HTTPClient: &http.Client{
-			Timeout: 5 * time.Second,
-			Transport: &http.Transport{
-				MaxIdleConns:        1000,
-				MaxIdleConnsPerHost: 1000,
-				IdleConnTimeout:     2 * time.Second,
-			},
+			Client:  hp,
 		},
 	}, nil
 }
@@ -199,7 +208,7 @@ func (w *Worker) processRequest() (Metrics, error) {
 	}
 
 	// Send add_widget request
-	resp, err := w.httpClient.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
+	resp, err := w.nginx.Client.Post(fmt.Sprintf("%s/%s", w.nginx.address, addWidgetEndpoint), "application/json", payload)
 	if err != nil {
 		return Metrics{}, fmt.Errorf("failed to send request: %w", err)
 	}
@@ -215,13 +224,12 @@ func (w *Worker) processRequest() (Metrics, error) {
 	return Metrics{Duration: duration}, nil
 }
 
-func (q *Victoria) sendMetrics(duration float64) error {
+func (v *Victoria) sendMetrics(duration float64) error {
 	// Format timestamp and data in Prometheus format
 	timestamp := time.Now().Unix()
 	data := fmt.Sprintf("request_times{label=\"duration\"} %v %d\n", duration, timestamp)
-	// Create HTTP POST request
-	endpoint := fmt.Sprintf("%s/%s", q.address, victoriaPrometheusEndpoint)
-	resp, err := http.Post(
+	endpoint := fmt.Sprintf("%s/%s", v.address, victoriaPrometheusEndpoint)
+	resp, err := v.Client.Post(
 		endpoint,
 		"text/plain",
 		strings.NewReader(data),
