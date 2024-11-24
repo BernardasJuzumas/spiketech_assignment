@@ -113,7 +113,7 @@ DECLARE
     widget2_slot widgets.slots%ROWTYPE; -- Same for widget2
 BEGIN
 
-	IF widget1_sn = widget1_sn THEN
+	IF widget1_sn = widget2_sn THEN
 		RAISE EXCEPTION 'Widgets cannot self-associate';
 	END IF;
     -- Retrieve widget IDs based on the provided serial numbers
