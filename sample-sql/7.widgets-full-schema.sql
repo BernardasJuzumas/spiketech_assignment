@@ -175,7 +175,7 @@ DECLARE
 	assoc bigint;
 BEGIN
 
-	IF widget1_sn = widget1_sn THEN
+	IF widget1_sn = widget2_sn THEN
 		RAISE EXCEPTION 'Widgets cannot self-associate';
 	END IF;
 
