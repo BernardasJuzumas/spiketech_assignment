@@ -1,6 +1,4 @@
 --------- SHEMA, TYPES, TABLES, INDEXES --------
-
-
 CREATE SCHEMA IF NOT EXISTS widgets;
 
 CREATE TYPE widgets.port_type AS ENUM
@@ -12,14 +10,12 @@ CREATE TABLE widgets.widgets (
     name text NOT NULL
 );
 
-
 CREATE TABLE widgets.slots (
     widget bigint NOT NULL REFERENCES widgets.widgets(id) ON DELETE CASCADE,
     slot widgets.port_type NOT NULL,
     association bigint REFERENCES widgets.widgets(id) ON DELETE SET NULL
     CONSTRAINT constrain_self_reference CHECK (widget <> association)
 );
-
 
 --Adding constraint with partial index to only allow duplicate set values if association value is not NULL
 CREATE UNIQUE INDEX idx_unique_widget_slot_assoc_except_null_assoc
